@@ -12,6 +12,7 @@ import { settingsView, type SettingsView } from '@/lib/settings';
 import { policiesData, type PoliciesData } from '@/policies/service';
 import { loadTrustConfig, type TrustConfig } from '@/trust/config';
 import { vendorsData } from '@/vendors/service';
+import { accessData } from '@/access/service';
 
 /** Everything the app screens render, already serializable. */
 
@@ -110,6 +111,7 @@ export interface AppData {
     isSample: boolean;
   }[];
   vendors: Awaited<ReturnType<typeof vendorsData>>;
+  access: Awaited<ReturnType<typeof accessData>>;
   questionnaires: {
     id: string; name: string; customer: string | null; dueDate: string | null; status: string; createdAt: string; createdBy: string;
     total: number; approved: number; needsInput: number;
@@ -127,6 +129,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
   const settings = await settingsView();
   const policies = await policiesData();
   const vendors = await vendorsData();
+  const access = await accessData();
   const [qRows, qCounts] = await Promise.all([
     prisma.questionnaire.findMany({ orderBy: { createdAt: 'desc' }, take: 200, select: { id: true, name: true, customer: true, dueDate: true, status: true, createdAt: true, createdBy: true } }),
     prisma.questionnaireItem.groupBy({ by: ['questionnaireId', 'status'], _count: true }),
@@ -264,6 +267,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       };
     }),
     vendors,
+    access,
     questionnaires: qRows.map(q => {
       const counts = qCounts.filter(c => c.questionnaireId === q.id);
       const n = (st?: string) => counts.filter(c => !st || c.status === st).reduce((t, c) => t + c._count, 0);

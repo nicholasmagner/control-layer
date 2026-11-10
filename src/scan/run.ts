@@ -1,4 +1,5 @@
 import { checksFor, PROVIDERS, type Provider, type ResourceResult } from '@/checks';
+import { extractAccounts } from '@/access/accounts';
 import { recomputeAssessments, syncControls } from '@/assessment/engine';
 import { collect } from '@/connectors';
 import { describeError } from '@/connectors/common';
@@ -60,6 +61,19 @@ async function imageReason(provider: Provider, checkId: string, results: Resourc
   return null;
 }
 
+/** Replaces the provider's account list with what this scan saw (for access reviews). */
+async function saveAccountSnapshot(provider: Provider, inventory: unknown, sample: boolean) {
+  const rows = extractAccounts(provider, inventory);
+  if (!rows) return;
+  await prisma.$transaction([
+    prisma.systemAccount.deleteMany({ where: { provider, isSample: sample } }),
+    prisma.systemAccount.createMany({
+      data: rows.map(r => ({ ...r, provider, isSample: sample, lastActivity: r.lastActivity ? new Date(r.lastActivity) : null })),
+      skipDuplicates: true,
+    }),
+  ]);
+}
+
 async function controlRowIds(): Promise<Map<string, string>> {
   const rows = await prisma.control.findMany({ select: { id: true, framework: true, controlId: true } });
   return new Map(rows.map(r => [`${r.framework}:${r.controlId}`, r.id]));
@@ -89,6 +103,7 @@ export async function runScan(provider: Provider, opts: { actor: string; sample?
   if (!sample) await clearSampleData({ actor: opts.actor, quiet: true });
 
   summary.account = collected.account;
+  await saveAccountSnapshot(provider, collected.inventory, sample).catch(err => summary.warnings.push(`Account list: ${describeError(err)}`));
   summary.warnings = collected.errors;
   const controlIds = await controlRowIds();
 
@@ -277,6 +292,7 @@ export async function clearSampleData(opts: { actor: string; quiet?: boolean }) 
     prisma.finding.deleteMany({ where: { isSample: true } }),
     prisma.evidenceArtifact.deleteMany({ where: { isSample: true } }),
   ]);
+  await prisma.systemAccount.deleteMany({ where: { isSample: true } });
   const removed = runs.count + findings.count + evidence.count;
   if (removed > 0) {
     await recomputeAssessments();

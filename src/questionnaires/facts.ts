@@ -79,8 +79,7 @@ export async function loadFacts(): Promise<Facts> {
     return { open, lastAssessed: last?.reviewedAt ?? null };
   }, { open: 0, lastAssessed: null });
   const accessReviews = await optional(async () => {
-    const a = prisma as unknown as { accessReview: { findMany: (a: unknown) => Promise<{ completedAt: Date | null }[]> } };
-    const done = await a.accessReview.findMany({ where: { status: 'completed' }, orderBy: { completedAt: 'desc' }, select: { completedAt: true } });
+    const done = await prisma.accessReview.findMany({ where: { status: 'completed' }, orderBy: { completedAt: 'desc' }, select: { completedAt: true } });
     return { lastCompleted: done[0]?.completedAt ?? null, count: done.length };
   }, { lastCompleted: null, count: 0 });
 
