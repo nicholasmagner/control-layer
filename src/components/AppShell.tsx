@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Bot, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, LogOut, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, Bot, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, ClipboardList, LogOut, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { AppData } from '@/lib/data';
@@ -13,12 +13,13 @@ import EvidenceTab from './EvidenceTab';
 import FindingsTab from './FindingsTab';
 import PeopleTab from './PeopleTab';
 import PoliciesTab from './PoliciesTab';
+import QuestionnairesTab from './QuestionnairesTab';
 import SettingsTab from './SettingsTab';
 import TrustTab from './TrustTab';
 import UploadEvidenceModal from './UploadEvidenceModal';
 import { api, Button, cx, FRAMEWORK_GROUPS } from './ui';
 
-export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'devices' | 'evidence' | 'trust' | 'connectors' | 'assistant' | 'settings';
+export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'devices' | 'evidence' | 'questionnaires' | 'trust' | 'connectors' | 'assistant' | 'settings';
 
 export interface TabProps {
   data: AppData;
@@ -30,7 +31,7 @@ export interface TabProps {
   focusControl?: string;
 }
 
-const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'policies', 'people', 'devices', 'evidence', 'trust', 'connectors', 'assistant', 'settings'];
+const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'policies', 'people', 'devices', 'evidence', 'questionnaires', 'trust', 'connectors', 'assistant', 'settings'];
 
 export default function AppShell({ data, initialTab, initialFramework }: { data: AppData; initialTab?: string; initialFramework?: string }) {
   const router = useRouter();
@@ -55,16 +56,17 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
   }, []);
   const refresh = useCallback(() => router.refresh(), [router]);
 
-  const nav: { id: TabId; label: string; icon: typeof LayoutDashboard; badge?: number; hidden?: boolean }[] = [
+  const nav: { id: TabId; label: string; icon: typeof LayoutDashboard; badge?: number; hidden?: boolean; section?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'controls', label: 'Controls', icon: ListChecks },
     { id: 'findings', label: 'Findings', icon: AlertTriangle, badge: data.findings.filter(f => f.status === 'Open').length },
-    { id: 'policies', label: 'Policies', icon: FileText, badge: data.policies.policies.filter(p => p.overdue).length },
+    { id: 'policies', label: 'Policies', icon: FileText, badge: data.policies.policies.filter(p => p.overdue).length, section: 'Program' },
     { id: 'people', label: 'People', icon: Users },
     { id: 'devices', label: 'Devices', icon: MonitorSmartphone, badge: data.devices.filter(d => d.failing.length).length },
-    { id: 'evidence', label: 'Evidence & Audits', icon: FolderArchive },
+    { id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, badge: data.questionnaires.filter(q => q.status !== 'completed' && q.dueDate && new Date(q.dueDate) < new Date()).length, section: 'Customers & auditors' },
     { id: 'trust', label: 'Trust Center', icon: ShieldCheck, badge: data.trust.requests.filter(r => r.status === 'pending').length },
-    { id: 'connectors', label: 'Integrations', icon: Cloud },
+    { id: 'evidence', label: 'Evidence & Audits', icon: FolderArchive },
+    { id: 'connectors', label: 'Integrations', icon: Cloud, section: 'Setup' },
     { id: 'assistant', label: 'Assistant', icon: Bot, hidden: !data.features.assistant },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -99,15 +101,18 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
           </select>
         </div>
 
-        <nav className="mt-6 flex-1 space-y-1 px-4">
+        <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-4 pb-4">
           {nav.filter(n => !n.hidden).map(n => (
-            <button key={n.id} onClick={() => navigate(n.id)}
-              className={cx('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
+            <div key={n.id}>
+            {n.section && <p className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-slate-600">{n.section}</p>}
+            <button onClick={() => navigate(n.id)}
+              className={cx('flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                 tab === n.id ? 'bg-sky-500/10 font-semibold text-sky-400' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200')}>
               <n.icon size={17} />
               <span className="flex-1 text-left">{n.label}</span>
               {!!n.badge && <span className="rounded-full bg-red-500/15 px-2 text-xs font-semibold text-red-400">{n.badge}</span>}
             </button>
+            </div>
           ))}
         </nav>
 
@@ -149,6 +154,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
           {tab === 'people' && <PeopleTab {...props} />}
           {tab === 'devices' && <DevicesTab {...props} />}
           {tab === 'evidence' && <EvidenceTab {...props} />}
+          {tab === 'questionnaires' && <QuestionnairesTab {...props} />}
           {tab === 'trust' && <TrustTab {...props} />}
           {tab === 'connectors' && <ConnectorsTab {...props} />}
           {tab === 'assistant' && data.features.assistant && <AssistantTab />}

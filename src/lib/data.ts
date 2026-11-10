@@ -108,6 +108,10 @@ export interface AppData {
     passing: number;
     isSample: boolean;
   }[];
+  questionnaires: {
+    id: string; name: string; customer: string | null; dueDate: string | null; status: string; createdAt: string; createdBy: string;
+    total: number; approved: number; needsInput: number;
+  }[];
   trust: {
     config: TrustConfig;
     documents: { id: string; title: string; description: string | null; access: string; fileName: string; fileSize: number; uploadedBy: string; createdAt: string }[];
@@ -120,6 +124,10 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 export async function getAppData(user: CurrentUser): Promise<AppData> {
   const settings = await settingsView();
   const policies = await policiesData();
+  const [qRows, qCounts] = await Promise.all([
+    prisma.questionnaire.findMany({ orderBy: { createdAt: 'desc' }, take: 200, select: { id: true, name: true, customer: true, dueDate: true, status: true, createdAt: true, createdBy: true } }),
+    prisma.questionnaireItem.groupBy({ by: ['questionnaireId', 'status'], _count: true }),
+  ]);
   const realDevices = await prisma.device.findMany({ orderBy: [{ role: 'asc' }, { hostname: 'asc' }] });
   // With only sample data loaded, show the sample company's devices.
   const showSample = !realDevices.length;
@@ -251,6 +259,11 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
         passing: mine.filter(r => r.status === 'pass').length,
         isSample: showSample,
       };
+    }),
+    questionnaires: qRows.map(q => {
+      const counts = qCounts.filter(c => c.questionnaireId === q.id);
+      const n = (st?: string) => counts.filter(c => !st || c.status === st).reduce((t, c) => t + c._count, 0);
+      return { ...q, dueDate: iso(q.dueDate), createdAt: q.createdAt.toISOString(), total: n(), approved: n('approved'), needsInput: n('needs_input') };
     }),
     trust: {
       config: trustConfig,

@@ -29,6 +29,7 @@
     "@prisma/client": "^5.22.0",
     "asn1js": "^4.0.0",
     "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
     "google-auth-library": "^11.3.3",
     "jszip": "^3.10.2",
     "ldapts": "^9.2.0",

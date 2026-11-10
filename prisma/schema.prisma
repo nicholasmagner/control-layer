@@ -388,3 +388,64 @@ model Device {
 
   @@index([lastSeenAt])
 }
+
+// ---------------------------------------------------------------------------
+// Security questionnaires: customers' questionnaires answered from the answer
+// library (built-in answers generated from live data, plus your own).
+// ---------------------------------------------------------------------------
+
+model AnswerLibraryEntry {
+  id         String   @id @default(uuid())
+  question   String   @db.Text
+  answer     String   @db.Text
+  // Overrides a built-in answer when set (its key).
+  builtinKey String?  @unique
+  // Shown in the Trust Center FAQ.
+  isPublic   Boolean  @default(false)
+  usageCount Int      @default(0)
+  updatedBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Questionnaire {
+  id           String    @id @default(uuid())
+  name         String
+  customer     String?
+  dueDate      DateTime?
+  // 'in_progress' | 'completed'
+  status       String    @default("in_progress")
+  // Original uploaded file, so answers can be written back into it.
+  fileName     String?
+  fileData     Bytes?
+  sheetName    String?
+  headerRow    Int?
+  questionCol  Int?
+  answerCol    Int?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items QuestionnaireItem[]
+}
+
+model QuestionnaireItem {
+  id              String  @id @default(uuid())
+  questionnaireId String
+  position        Int
+  // Row in the original spreadsheet (1-based), when imported from a file.
+  row             Int?
+  section         String?
+  question        String  @db.Text
+  answer          String  @db.Text @default("")
+  // 'suggested' | 'approved' | 'needs_input'
+  status          String  @default("needs_input")
+  confidence      Float   @default(0)
+  // Where the suggestion came from: { type: 'builtin' | 'library' | 'assistant', key?, id?, sources?[] }
+  source          Json?
+  approvedBy      String?
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireId, position])
+}

@@ -78,6 +78,7 @@ export async function trustPageData() {
     prisma.checkRun.count({ where: { isSample: true } }),
     prisma.checkRun.findFirst({ where: { isSample: false, status: { in: ['success', 'partial'] } }, orderBy: { startedAt: 'desc' }, select: { startedAt: true } }),
   ]);
+  const faq = await prisma.answerLibraryEntry.findMany({ where: { isPublic: true }, orderBy: { question: 'asc' }, take: 50, select: { question: true, answer: true } });
   const practices = config.showPractices && sampleRuns === 0 && lastRun ? verifiedPractices(await latestCheckOutcomes()) : [];
   return {
     organization: settings.organizationName,
@@ -90,6 +91,7 @@ export async function trustPageData() {
     practicesCheckedAt: practices.length ? lastRun!.startedAt.toISOString() : null,
     policies: policies.map(p => ({ title: p.title, updatedAt: p.versions[0]?.publishedAt.toISOString() ?? null })),
     documents,
+    faq,
   };
 }
 

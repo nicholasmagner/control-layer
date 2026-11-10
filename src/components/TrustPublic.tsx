@@ -95,6 +95,20 @@ export default function TrustPublic({ data }: { data: Data }) {
           </section>
         )}
 
+        {data.faq.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Frequently asked security questions</h2>
+            <div className="mt-4 divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900/60">
+              {data.faq.map(f => (
+                <details key={f.question} className="group px-5 py-4">
+                  <summary className="cursor-pointer list-none font-medium text-slate-100 marker:hidden">{f.question}</summary>
+                  <p className="mt-2 whitespace-pre-line text-sm text-slate-400">{f.answer}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+        )}
+
         {data.policies.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Policies</h2>

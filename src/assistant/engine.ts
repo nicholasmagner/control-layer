@@ -78,7 +78,7 @@ function contextBlock(label: string, data: unknown): string {
   return `<${label}>\n${JSON.stringify(sanitizeContext(data), null, 2)}\n</${label}>`;
 }
 
-export const SYSTEM_PROMPT = `You are the ControlLayer assistant, an expert in security compliance frameworks (SOC 2, CMMC, PCI DSS) helping a small company prepare for audits.
+export const SYSTEM_PROMPT = `You are the ControlLayer assistant, an expert in security compliance frameworks (SOC 2, ISO 27001, HIPAA, GDPR, CMMC, PCI DSS, ISO 42001, NIST AI RMF) helping a small company prepare for audits.
 
 Rules, in priority order:
 1. You can only write text for a person to read. You cannot change records, run scans or take any action.
@@ -141,4 +141,37 @@ export class Assistant {
       ...trimmed,
     ]);
   }
+}
+
+/** True when an API key is saved, so assistant features can be offered. */
+export async function assistantConfigured(): Promise<boolean> {
+  return !!(await getClient());
+}
+
+/**
+ * Drafts answers to questionnaire questions using only the company facts and
+ * approved answers passed in. Returns one draft per question index, or none
+ * when the facts don't cover it. Drafts are always reviewed by a person.
+ */
+export async function draftQuestionnaireAnswers(questions: { i: number; question: string }[], knowledge: unknown): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (!(await getClient()) || !questions.length) return out;
+  const text = await complete([{
+    role: 'user',
+    content: [
+      'Draft answers to these security questionnaire questions for the company described in <context>. Use only facts in <context>; never invent certifications, dates, tools or numbers.',
+      'If the context does not support an answer, use an empty string for it. Write each answer in first person plural ("We ..."), 1-3 sentences, plain text.',
+      'Reply with only a JSON array: [{"i": <index>, "answer": "<text>"}].',
+      contextBlock('context', knowledge),
+      contextBlock('questions', questions.map(q => ({ i: q.i, question: q.question.slice(0, 1000) }))),
+    ].join('\n\n'),
+  }]);
+  const json = text.match(/\[[\s\S]*\]/)?.[0];
+  if (!json) return out;
+  try {
+    for (const row of JSON.parse(json) as { i: number; answer: string }[]) {
+      if (typeof row.i === 'number' && typeof row.answer === 'string' && row.answer.trim()) out.set(row.i, row.answer.trim().slice(0, 4000));
+    }
+  } catch { /* unusable reply: leave unanswered */ }
+  return out;
 }
