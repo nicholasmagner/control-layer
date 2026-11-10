@@ -6,7 +6,7 @@ import { runScan } from '@/scan/run';
 
 /**
  * Runs scans from the command line or a cron job:
- *   npm run scan            -> every configured cloud account
+ *   npm run scan            -> every configured integration
  *   npm run scan -- aws gcp -> only these providers
  * Exits non-zero if any scan fails.
  */
@@ -16,7 +16,7 @@ async function main() {
   if (bad.length) throw new Error(`Unknown provider(s): ${bad.join(', ')}. Use ${PROVIDERS.map(p => p.id).join(', ')}.`);
   const providers: Provider[] = args.length ? (args as Provider[]) : (await connectorInfo()).filter(c => c.configured).map(c => c.provider);
   if (providers.length === 0) {
-    console.log('No cloud accounts are configured. See "Cloud accounts" in the app for setup instructions.');
+    console.log('Nothing is connected yet. Open Integrations in the app to connect a service.');
     return;
   }
 

@@ -29,17 +29,24 @@ so your computer asks you to confirm the first time:
 ## Using it
 
 1. Open ControlLayer and create your administrator account.
-2. Click **Load sample data** to explore, or connect your cloud accounts (below).
+2. Click **Load sample data** to explore, or connect your accounts (below).
 3. Everything else works exactly as described in the main [README](../README.md).
 
-### Connecting your cloud accounts
+### Connecting your accounts
 
-Open **Cloud Accounts** and click **Connect**. Choose **Sign in with your
-browser**: your browser opens, you sign in to AWS, Google Cloud or Azure as
-usual, and you pick what to scan. This uses the cloud's own command-line tool
-(AWS CLI, `gcloud` or Azure CLI); if it isn't installed yet, the dialog links
-to the installer. Or choose **Use a read-only key** and follow the short steps
-shown. Keys are stored encrypted on this computer.
+Open **Integrations** and click **Connect**. Choose **Sign in with your
+browser**: your browser opens, you sign in to AWS, Google Cloud, Azure,
+Microsoft 365 or GitHub as usual, and you pick what to scan. This uses the
+service's own command-line tool (AWS CLI, `gcloud`, Azure CLI or GitHub CLI);
+if it isn't installed yet, the dialog links to the installer. Or choose the key
+option and follow the short steps shown (Google Workspace always uses a key).
+Keys are stored encrypted on this computer.
+
+### Trust Center
+
+The public Trust Center page (`/trust`) is served by the app, so others can
+only reach it while this computer is on and network access is turned on. For
+an always-on Trust Center, run ControlLayer on a server with Docker.
 
 ### Settings
 
