@@ -13,15 +13,13 @@ RUN npm ci
 FROM deps AS build
 COPY . .
 ENV NEXT_OUTPUT=standalone
-RUN npm run build
+RUN npm run build && node scripts/prepare-standalone.mjs
 
 FROM base AS runtime
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+# Self-contained server: static files, public/, fonts and migrations included.
 COPY --from=build --chown=node:node /app/.next/standalone ./
-COPY --from=build --chown=node:node /app/.next/static ./.next/static
-COPY --from=build --chown=node:node /app/public ./public
-COPY --from=build --chown=node:node /app/prisma ./prisma
-COPY --from=build --chown=node:node /app/assets ./assets
+COPY --from=build --chown=node:node /app/prisma/schema.prisma ./prisma/schema.prisma
 # Prisma CLI and engines, used to apply database migrations at startup.
 COPY --from=build --chown=node:node /app/node_modules/prisma ./node_modules/prisma
 COPY --from=build --chown=node:node /app/node_modules/@prisma ./node_modules/@prisma

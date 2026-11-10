@@ -70,6 +70,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Hide the build output first, so the packaged app can't depend on
+      # anything outside itself (as on a customer's computer).
+      - name: Hide build output
+        shell: bash
+        run: mv .next .next-hidden
+
       - name: Smoke test the packaged app
         working-directory: desktop
         run: ${{ matrix.smoke }}
