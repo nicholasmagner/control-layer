@@ -13,8 +13,9 @@ It is built for companies without a compliance team: self-hosted, read-only by d
 - **Continuous cloud checks.** 34 read-only checks across AWS, Google Cloud and Azure: MFA, inactive users, key rotation, public storage, open SSH/RDP, encryption, audit logging, backups and more.
 - **Framework mapping.** Each check is mapped to every control it supports, so one scan updates SOC 2, CMMC and PCI DSS at once.
 - **Evidence collection for auditors.** Every scan result is stored as dated evidence. Upload policies, screenshots, access reviews and other documents and link them to controls. Each control lists what auditors typically request.
+- **Automatic evidence images.** Auditors often ask for screenshots showing a control is in place. Each scan produces screenshot-style images of the results (system, account, date and time in UTC, every resource checked, pass/fail, who collected it), filed under the right controls. A new image is made the first time, whenever a result changes, and on a schedule (default every 30 days), so a Type II audit period has a dated series. Images are labeled as generated from cloud API data, and each one shows the fingerprint of the raw data record it came from.
 - **Audit evidence package.** One click produces a ZIP for a framework and audit period: a control status summary, findings (including accepted risks), the activity log, an evidence index, and a folder per control with its evidence.
-- **Tamper-evident records.** Evidence is fingerprinted (SHA-256) when collected and linked in a hash chain. The integrity check, and every export, shows whether anything was changed or deleted afterward.
+- **Tamper-evident records.** Evidence is fingerprinted (SHA-256) when collected and linked in a hash chain, and the chain is independently timestamped by a public RFC 3161 Time-Stamp Authority (only a fingerprint is sent). Even someone with direct database access can't rewrite or backdate evidence without it showing up, and auditors can check the timestamps themselves with `openssl`.
 - **Findings that close themselves.** Failing resources become findings with step-by-step fixes. They resolve automatically when a later scan sees them fixed, or you can accept the risk with a documented reason.
 - **Auditor access.** Three roles: admin, member, and auditor (read-only, can download evidence).
 - **Sample company.** Load realistic sample data for all three clouds to explore everything before connecting an account.
@@ -112,6 +113,8 @@ All settings are environment variables; see [`.env.example`](./.env.example).
 | `DATABASE_URL` | PostgreSQL connection string (required) |
 | `ORGANIZATION_NAME` | Shown in the app and on audit packages |
 | `SCAN_INTERVAL_HOURS` | Automatic scans while the server runs |
+| `SNAPSHOT_INTERVAL_DAYS` | How often an unchanged check gets a fresh evidence image (default 30) |
+| `TIMESTAMP_AUTHORITY_URL` | RFC 3161 Time-Stamp Authority (default `https://freetsa.org/tsr`; `off` to disable) |
 | `AWS_*`, `GCP_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*` | Cloud credentials (see above) |
 | `ENABLE_AWS_REMEDIATION` | Lets admins apply a "require MFA" IAM policy to an AWS user from a finding. **This is the only feature that changes a cloud account**; it is off by default and needs `iam:PutUserPolicy`. |
 | `ASSISTANT_API_KEY`, `ASSISTANT_MODEL` | Optional assistant that explains controls and drafts audit narrative from your data. It can only read and answer; pass/fail always comes from the checks. Off when unset. |
@@ -138,7 +141,7 @@ cloud APIs ──► connectors (read-only)  ──► normalized inventory
 - `src/checks/`: checks over the normalized inventory, each mapped to framework controls. They don't call cloud APIs, so they are unit-tested directly.
 - `src/scan/`: runs a scan, records results, opens and closes findings, stores evidence.
 - `src/assessment/`: deterministic control status (Met, Partially Met, Not Met, Needs Evidence, Not Applicable).
-- `src/evidence/`: hash chain, integrity verification and the audit package builder.
+- `src/evidence/`: hash chain, RFC 3161 timestamps, evidence image rendering, integrity verification and the audit package builder.
 
 ### Adding a check
 
@@ -154,12 +157,14 @@ Create `src/frameworks/<name>.ts` following `soc2.ts`, register it in `src/frame
 - Passwords are hashed with scrypt; sessions are random tokens stored hashed; sign-in attempts are rate limited.
 - Mutating requests require a same-site session cookie and are rejected from other origins.
 - Uploaded files are always served as downloads, never rendered in the browser.
-- The evidence chain is tamper-*evident*, not tamper-proof: someone with direct database access could rebuild it, which is why the chain head is printed in every export for you and your auditor to record.
+- The evidence chain is tamper-*evident*: changes are detected, not prevented. Independent RFC 3161 timestamps mean even a full rebuild of the chain by someone with database access is detected. Each audit package includes the signed timestamp tokens and instructions for verifying them with `openssl`.
 
 Please report vulnerabilities privately; see [SECURITY.md](./SECURITY.md).
 
 ## Roadmap
 
+- Browser extension: one-click screenshots of any admin page (Azure, Google Workspace, GitHub, Okta) stamped with URL, time and user, uploaded to ControlLayer
+- Optional real AWS console screenshots via read-only console federation
 - HIPAA Security Rule and GDPR catalogs; full PCI DSS and ISO 27001
 - Identity and SaaS connectors: Google Workspace, Microsoft 365 / Entra ID, Okta, GitHub
 - Policy templates and annual review reminders
@@ -172,6 +177,6 @@ Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](./LICENSE). Evidence images use the Inter typeface (SIL Open Font License, see `assets/fonts/`).
 
 ControlLayer helps you prepare for audits; it does not certify compliance. Framework descriptions are plain-language summaries. Refer to the official standards (AICPA Trust Services Criteria, CMMC, PCI DSS) for authoritative wording.

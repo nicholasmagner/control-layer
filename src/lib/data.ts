@@ -7,7 +7,8 @@ import { connectorInfo } from '@/connectors';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
 import { remediationEnabled } from '@/lib/remediation';
-import { organizationName, scanIntervalHours } from '@/lib/settings';
+import { organizationName, scanIntervalHours, snapshotIntervalDays } from '@/lib/settings';
+import { tsaUrl } from '@/evidence/timestamp';
 
 /** Everything the app screens render, already serializable. */
 
@@ -27,7 +28,7 @@ export interface ControlView {
   expectedEvidence: string[];
   freshnessDays: number;
   checks: { id: string; title: string; provider: string; severity: string; passed: number; failed: number; run: boolean }[];
-  evidence: { id: string; title: string; kind: string; collectedAt: string }[];
+  evidence: { id: string; title: string; kind: string; mimeType: string | null; collectedAt: string }[];
   evidenceCount: number;
 }
 
@@ -74,6 +75,7 @@ export interface EvidenceView {
   collectedBy: string | null;
   fileName: string | null;
   fileSize: number | null;
+  mimeType: string | null;
   sha256: string | null;
   isSample: boolean;
   controls: { framework: string; controlId: string }[];
@@ -92,17 +94,18 @@ export interface AppData {
     checkCount: number;
   })[];
   users: { id: string; name: string; email: string; role: string; lastLoginAt: string | null; createdAt: string }[];
-  features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null };
+  features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null; snapshotIntervalDays: number };
+  timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
 }
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 export async function getAppData(user: CurrentUser): Promise<AppData> {
-  const [controls, outcomes, findings, evidence, evidenceTotal, events, runs, users, sampleRuns] = await Promise.all([
+  const [controls, outcomes, findings, evidence, evidenceTotal, events, runs, users, sampleRuns, anchorCount, latestAnchor] = await Promise.all([
     prisma.control.findMany({
       include: {
         scores: { orderBy: { evaluatedAt: 'desc' }, take: 1 },
-        evidence: { orderBy: { evidence: { collectedAt: 'desc' } }, take: 8, include: { evidence: { select: { id: true, title: true, kind: true, collectedAt: true } } } },
+        evidence: { orderBy: { evidence: { collectedAt: 'desc' } }, take: 8, include: { evidence: { select: { id: true, title: true, kind: true, mimeType: true, collectedAt: true } } } },
         _count: { select: { evidence: true } },
       },
     }),
@@ -112,7 +115,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       orderBy: { seq: 'desc' }, take: 300,
       select: {
         id: true, seq: true, title: true, description: true, kind: true, source: true, collectedAt: true, collectedBy: true,
-        fileName: true, fileSize: true, sha256: true, isSample: true,
+        fileName: true, fileSize: true, mimeType: true, sha256: true, isSample: true,
         controls: { select: { control: { select: { framework: true, controlId: true } } } },
       },
     }),
@@ -121,6 +124,8 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
     prisma.checkRun.findMany({ orderBy: { startedAt: 'desc' }, take: 30 }),
     can.admin(user) ? prisma.user.findMany({ orderBy: { createdAt: 'asc' } }) : Promise.resolve([]),
     prisma.checkRun.count({ where: { isSample: true } }),
+    prisma.chainAnchor.count(),
+    prisma.chainAnchor.findFirst({ orderBy: { seq: 'desc' }, select: { genTime: true, seq: true } }),
   ]);
 
   const byKey = new Map(controls.map(c => [`${c.framework}:${c.controlId}`, c]));
@@ -193,6 +198,10 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       };
     }),
     users: users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, lastLoginAt: iso(u.lastLoginAt), createdAt: u.createdAt.toISOString() })),
-    features: { assistant: assistantEnabled(), remediation: remediationEnabled(), hasSampleData: sampleRuns > 0, scanIntervalHours: scanIntervalHours() },
+    features: { assistant: assistantEnabled(), remediation: remediationEnabled(), hasSampleData: sampleRuns > 0, scanIntervalHours: scanIntervalHours(), snapshotIntervalDays: snapshotIntervalDays() },
+    timestamps: {
+      enabled: !!tsaUrl(), authority: tsaUrl() ? new URL(tsaUrl()!).host : null, count: anchorCount,
+      latest: latestAnchor ? { genTime: latestAnchor.genTime.toISOString(), seq: latestAnchor.seq } : null,
+    },
   };
 }

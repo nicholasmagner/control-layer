@@ -193,3 +193,20 @@ model EventLog {
 
   @@index([timestamp])
 }
+
+// ---------------------------------------------------------------------------
+// Independent timestamps (RFC 3161) of the evidence chain head. Each token
+// proves every evidence record up to `seq` existed by `genTime`.
+// ---------------------------------------------------------------------------
+
+model ChainAnchor {
+  id        String   @id @default(uuid())
+  seq       Int
+  chainHash String
+  tsaUrl    String
+  token     Bytes
+  genTime   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([seq])
+}

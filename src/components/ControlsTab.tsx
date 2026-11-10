@@ -1,10 +1,10 @@
 'use client';
 
-import { ChevronDown, ChevronRight, Download, FileText, Search, Sparkles, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Eye, FileText, Image as ImageIcon, Search, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ControlView } from '@/lib/data';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, cx, ErrorText, formatDate, inputCls, PageHeader, Pill, PROVIDER_LABEL, StatusBadge } from './ui';
+import { api, Button, Card, cx, ErrorText, formatDate, ImagePreview, inputCls, isPreviewableImage, PageHeader, Pill, PROVIDER_LABEL, StatusBadge } from './ui';
 
 const FILTERS = ['All', 'Not Met', 'Partially Met', 'Needs Evidence', 'Met', 'Not Applicable'] as const;
 
@@ -69,6 +69,7 @@ function ControlRow({ control: c, open, onToggle, data, refresh, openUpload }: T
   const [showNa, setShowNa] = useState(false);
   const [error, setError] = useState('');
   const [explain, setExplain] = useState<{ loading: boolean; text?: string }>({ loading: false });
+  const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => { if (open) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [open]);
 
@@ -106,6 +107,7 @@ function ControlRow({ control: c, open, onToggle, data, refresh, openUpload }: T
         <StatusBadge status={c.status} />
       </button>
 
+      {preview && <ImagePreview id={preview.id} title={preview.title} onClose={() => setPreview(null)} />}
       {open && (
         <div className="grid gap-6 border-t border-slate-800 bg-slate-950/40 px-5 py-5 lg:grid-cols-2">
           <div className="space-y-5">
@@ -156,9 +158,12 @@ function ControlRow({ control: c, open, onToggle, data, refresh, openUpload }: T
                 <ul className="space-y-1">
                   {c.evidence.map(e => (
                     <li key={e.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-800/50">
-                      <FileText size={14} className="shrink-0 text-slate-500" />
+                      {e.kind === 'snapshot' ? <ImageIcon size={14} className="shrink-0 text-emerald-400" /> : <FileText size={14} className="shrink-0 text-slate-500" />}
                       <span className="min-w-0 flex-1 truncate text-slate-300">{e.title}</span>
                       <span className="text-xs text-slate-500">{formatDate(e.collectedAt)}</span>
+                      {isPreviewableImage(e.mimeType) && (
+                        <button onClick={() => setPreview({ id: e.id, title: e.title })} className="text-slate-500 hover:text-sky-400" title="View"><Eye size={14} /></button>
+                      )}
                       <a href={`/api/evidence/${e.id}`} className="text-slate-500 hover:text-sky-400" title="Download"><Download size={14} /></a>
                     </li>
                   ))}

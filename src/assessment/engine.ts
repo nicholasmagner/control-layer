@@ -68,7 +68,7 @@ export async function recomputeAssessments() {
       .map(c => outcomes.get(c.id))
       .filter((o): o is CheckOutcome => !!o);
     const currentManualEvidence = control.evidence.filter(e =>
-      e.evidence.kind !== 'automated' &&
+      (e.evidence.kind === 'upload' || e.evidence.kind === 'note') &&
       now - e.evidence.collectedAt.getTime() <= freshnessMs,
     ).length;
 

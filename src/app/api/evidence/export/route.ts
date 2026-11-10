@@ -51,7 +51,7 @@ export const GET = handle(async (req: Request) => {
     const freshnessMs = (def.freshnessDays ?? DEFAULT_FRESHNESS_DAYS) * 86_400_000;
     const evidence = (row?.evidence ?? [])
       .map(l => l.evidence)
-      .filter(e => e.kind === 'automated'
+      .filter(e => e.kind === 'automated' || e.kind === 'snapshot'
         ? e.collectedAt >= from && e.collectedAt <= to
         // Documents count if they were current at any point during the period.
         : e.collectedAt <= to && e.collectedAt.getTime() >= from.getTime() - freshnessMs)
@@ -68,13 +68,14 @@ export const GET = handle(async (req: Request) => {
     };
   });
 
-  const [findings, events, chain] = await Promise.all([
+  const [findings, events, chain, anchors] = await Promise.all([
     prisma.finding.findMany({
       where: { createdAt: { lte: to }, OR: [{ resolvedAt: null }, { resolvedAt: { gte: from } }] },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.eventLog.findMany({ where: { timestamp: { gte: from, lte: to } }, orderBy: { timestamp: 'asc' } }),
     verifyEvidenceChain(),
+    prisma.chainAnchor.findMany({ where: { createdAt: { lte: new Date() } }, orderBy: { seq: 'asc' } }),
   ]);
 
   const { zip, fileName } = await buildAuditPackage({
@@ -88,6 +89,7 @@ export const GET = handle(async (req: Request) => {
     findings,
     events,
     chain,
+    timestamps: anchors.map(a => ({ seq: a.seq, chainHash: a.chainHash, genTime: a.genTime, tsaUrl: a.tsaUrl, token: new Uint8Array(a.token) })),
   });
 
   await logEvent({

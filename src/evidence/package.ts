@@ -46,7 +46,8 @@ export interface PackageInput {
   controls: PackageControl[];
   findings: { title: string; severity: string; status: string; resource: string | null; description: string; createdAt: Date; resolvedAt: Date | null; acceptReason: string | null; acceptedBy: string | null }[];
   events: { timestamp: Date; actor: string; action: string; decision: string; resource: string | null; reason: string | null }[];
-  chain: ChainVerification;
+  chain: ChainVerification & { anchors?: { count: number; valid: number; latest: { genTime: string; tsaUrl: string } | null } };
+  timestamps: { seq: number; chainHash: string; genTime: Date; tsaUrl: string; token: Uint8Array }[];
 }
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -155,6 +156,28 @@ export async function buildAuditPackage(input: PackageInput): Promise<{ zip: Uin
   ]));
   add('03-evidence-index.csv', csv(evidenceIndex));
 
+  if (input.timestamps.length) {
+    const rows: (string | number)[][] = [['Covers records up to #', 'Chain hash (timestamped digest)', 'Timestamp (UTC)', 'Authority', 'Token file']];
+    for (const t of input.timestamps) {
+      const file = `timestamps/record-${String(t.seq).padStart(6, '0')}_${t.genTime.toISOString().replace(/[-:]/g, '').slice(0, 15)}.tsr`;
+      add(file, t.token);
+      rows.push([t.seq, t.chainHash, t.genTime.toISOString(), t.tsaUrl, file]);
+    }
+    add('timestamps/index.csv', csv(rows));
+    add('timestamps/HOW-TO-VERIFY.txt', [
+      'Each .tsr file is an RFC 3161 timestamp token signed by an independent Time-Stamp Authority.',
+      'It proves that the evidence chain, up to the record shown in index.csv, existed at the stated time.',
+      '',
+      'To verify a token with OpenSSL (FreeTSA shown; download the authority\'s certificates first):',
+      '  curl -O https://freetsa.org/files/tsa.crt',
+      '  curl -O https://freetsa.org/files/cacert.pem',
+      '  openssl ts -verify -digest <chain hash from index.csv> -token_in -in <token file> -CAfile cacert.pem -untrusted tsa.crt',
+      '',
+      'Expected output: "Verification: OK". Then confirm the same chain hash appears for that record',
+      'number in ../03-evidence-index.csv. To inspect a token: openssl ts -reply -token_in -in <token file> -text',
+    ].join('\r\n'));
+  }
+
   const statusCounts = input.controls.reduce<Record<string, number>>((m, c) => ({ ...m, [c.status]: (m[c.status] ?? 0) + 1 }), {});
   const chainLine = input.chain.ok
     ? `VERIFIED - ${input.chain.checked} record(s) checked${input.chain.legacy ? `, ${input.chain.legacy} older record(s) predate fingerprinting` : ''}.`
@@ -185,6 +208,10 @@ export async function buildAuditPackage(input: PackageInput): Promise<{ zip: Uin
     `  Chain head: ${input.chain.head ?? 'n/a'}`,
     '  Record the chain head. A later export whose chain still contains this value shows that',
     '  nothing collected before today was altered.',
+    input.timestamps.length
+      ? `  Independent timestamps: ${input.timestamps.length} RFC 3161 token(s) in timestamps/, latest ${input.timestamps[input.timestamps.length - 1].genTime.toISOString()} from ${input.timestamps[input.timestamps.length - 1].tsaUrl}. See timestamps/HOW-TO-VERIFY.txt.`
+      : '  Independent timestamps: none in this package.',
+    '  Evidence images (.png) are rendered from scan data; each shows the SHA-256 of the data record it was drawn from.',
     '  For uploaded files, the content SHA-256 in 03-evidence-index.csv equals the SHA-256 of the',
     '  file in this package. Automated scan results are fingerprinted over their canonical JSON',
     '  content; the exported .json adds descriptive fields around that content.',

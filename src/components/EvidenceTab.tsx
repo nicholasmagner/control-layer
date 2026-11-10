@@ -1,11 +1,21 @@
 'use client';
 
-import { Download, FileText, Fingerprint, FolderArchive, Search, ShieldAlert, ShieldCheck, StickyNote, Upload } from 'lucide-react';
+import { Clock, Download, Eye, FileText, Fingerprint, FolderArchive, Image as ImageIcon, Search, ShieldAlert, ShieldCheck, StickyNote, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, cx, Empty, ErrorText, Field, formatBytes, formatDate, inputBase, inputCls, PageHeader, Pill } from './ui';
+import { api, Button, Card, cx, Empty, ErrorText, Field, formatBytes, formatDate, ImagePreview, inputBase, inputCls, isPreviewableImage, PageHeader, Pill } from './ui';
 
-interface Verification { ok: boolean; checked: number; legacy: number; head: string | null; problem?: { seq: number; reason: string } }
+interface Verification {
+  ok: boolean; checked: number; legacy: number; head: string | null; problem?: { seq: number; reason: string };
+  anchors: { count: number; valid: number; latest: { genTime: string; tsaUrl: string } | null; problem?: { seq: number; reason: string } };
+}
+
+const KIND_FILTERS: Record<string, (k: string) => boolean> = {
+  all: () => true,
+  documents: k => k === 'upload' || k === 'note',
+  images: k => k === 'snapshot',
+  data: k => k === 'automated',
+};
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -21,10 +31,11 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState('all');
   const [showLog, setShowLog] = useState(false);
+  const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
 
   const fwNames = Object.fromEntries(data.frameworks.map(f => [f.id, f.shortName]));
   const list = useMemo(() => data.evidence.filter(e =>
-    (kind === 'all' || (kind === 'documents' ? e.kind !== 'automated' : e.kind === 'automated')) &&
+    KIND_FILTERS[kind](e.kind) &&
     (!query || `${e.title} ${e.fileName ?? ''} ${e.controls.map(c => c.controlId).join(' ')}`.toLowerCase().includes(query.toLowerCase()))),
   [data.evidence, kind, query]);
 
@@ -88,15 +99,23 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
               <p className="mt-1 text-sm text-slate-400">Every record is fingerprinted when collected and chained to the one before it. Any later edit or deletion shows up here.</p>
             </div>
           </div>
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-slate-950/60 p-3 text-xs text-slate-400">
+            <Clock size={14} className="mt-0.5 shrink-0 text-sky-400" />
+            {!data.timestamps.enabled ? <span>Independent timestamps are off (TIMESTAMP_AUTHORITY_URL=off).</span>
+              : data.timestamps.latest ? (
+                <span>Independently timestamped by <span className="text-slate-200">{data.timestamps.authority}</span>: latest {formatDate(data.timestamps.latest.genTime, true)}, covering records 1–{data.timestamps.latest.seq} ({data.timestamps.count} timestamp{data.timestamps.count === 1 ? '' : 's'}).</span>
+              ) : <span>Records are timestamped by <span className="text-slate-200">{data.timestamps.authority}</span> after your first real scan or upload.</span>}
+          </div>
           <Button className="mt-4 w-full" variant="secondary" onClick={runVerify} disabled={verifying}>{verifying ? 'Verifying…' : 'Verify all evidence'}</Button>
           <ErrorText>{verifyError}</ErrorText>
           {verify && (
             <div className={cx('mt-4 rounded-lg border p-3 text-sm', verify.ok ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-red-500/25 bg-red-500/10 text-red-300')}>
               <p className="flex items-center gap-2 font-semibold">
                 {verify.ok ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
-                {verify.ok ? `${verify.checked} record(s) verified` : `Problem at record #${verify.problem?.seq}`}
+                {verify.ok ? `${verify.checked} record(s) verified` : `Problem at record #${(verify.problem ?? verify.anchors.problem)?.seq}`}
               </p>
-              {!verify.ok && <p className="mt-1">{verify.problem?.reason}</p>}
+              {!verify.ok && <p className="mt-1">{(verify.problem ?? verify.anchors.problem)?.reason}</p>}
+              {verify.anchors.count > 0 && <p className="mt-1 text-xs opacity-80">{verify.anchors.valid} of {verify.anchors.count} independent timestamp(s) valid.</p>}
               {verify.legacy > 0 && <p className="mt-1 text-xs opacity-80">{verify.legacy} older record(s) predate fingerprinting.</p>}
               {verify.head && <p className="mt-2 break-all font-mono text-[10px] opacity-70">Chain head: {verify.head}</p>}
             </div>
@@ -114,7 +133,8 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
           <select className={cx(inputBase, 'w-auto')} value={kind} onChange={e => setKind(e.target.value)}>
             <option value="all">All evidence</option>
             <option value="documents">Documents &amp; notes</option>
-            <option value="automated">Scan results</option>
+            <option value="images">Evidence images</option>
+            <option value="data">Scan data records</option>
           </select>
         </div>
 
@@ -131,7 +151,9 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
                   <tr key={e.id} className="hover:bg-slate-800/30">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        {e.kind === 'note' ? <StickyNote size={14} className="shrink-0 text-amber-400" /> : <FileText size={14} className={cx('shrink-0', e.kind === 'upload' ? 'text-sky-400' : 'text-slate-500')} />}
+                        {e.kind === 'note' ? <StickyNote size={14} className="shrink-0 text-amber-400" />
+                          : e.kind === 'snapshot' ? <ImageIcon size={14} className="shrink-0 text-emerald-400" />
+                          : <FileText size={14} className={cx('shrink-0', e.kind === 'upload' ? 'text-sky-400' : 'text-slate-500')} />}
                         <span className="font-medium text-slate-200">{e.title}</span>
                         {e.isSample && <Pill className="text-amber-300">sample</Pill>}
                       </div>
@@ -145,7 +167,12 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">{formatDate(e.collectedAt, true)}<br /><span className="text-slate-600">{e.collectedBy}</span></td>
                     <td className="px-4 py-3 font-mono text-[11px] text-slate-500" title={e.sha256 ?? ''}>{e.sha256 ? `${e.sha256.slice(0, 12)}…` : '—'}</td>
-                    <td className="px-4 py-3 text-right"><a href={`/api/evidence/${e.id}`} className="text-slate-400 hover:text-sky-400" title="Download"><Download size={16} /></a></td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {isPreviewableImage(e.mimeType) && (
+                        <button onClick={() => setPreview({ id: e.id, title: e.title })} className="mr-3 text-slate-400 hover:text-sky-400" title="View"><Eye size={16} /></button>
+                      )}
+                      <a href={`/api/evidence/${e.id}`} className="text-slate-400 hover:text-sky-400" title="Download"><Download size={16} /></a>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -171,6 +198,7 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
           </Card>
         )}
       </section>
+      {preview && <ImagePreview id={preview.id} title={preview.title} onClose={() => setPreview(null)} />}
     </div>
   );
 }

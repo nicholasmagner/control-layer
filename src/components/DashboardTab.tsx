@@ -42,7 +42,7 @@ export default function DashboardTab({ data, frameworkId, navigate, refresh, ope
 
   const steps = [
     { done: scanned, label: 'Connect a cloud account (or load sample data)', action: () => navigate('connectors') },
-    { done: data.evidence.some(e => e.kind !== 'automated'), label: 'Upload policies and other evidence', action: () => openUpload() },
+    { done: data.evidence.some(e => e.kind === 'upload' || e.kind === 'note'), label: 'Upload policies and other evidence', action: () => openUpload() },
     { done: data.findings.some(f => f.status !== 'Open') || (scanned && open.length === 0), label: 'Fix or accept your first findings', action: () => navigate('findings') },
     { done: data.users.some(u => u.role === 'auditor'), label: 'Invite your auditor (read-only access)', action: () => navigate('settings'), hidden: data.user.role !== 'admin' },
     { done: data.events.some(e => e.action === 'Audit package exported'), label: 'Export an audit evidence package', action: () => navigate('evidence') },

@@ -150,3 +150,20 @@ export function formatBytes(n: number | null | undefined) {
 }
 
 export const PROVIDER_LABEL: Record<string, string> = { aws: 'AWS', gcp: 'Google Cloud', azure: 'Azure' };
+
+export const isPreviewableImage = (mime: string | null | undefined) =>
+  !!mime && ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mime);
+
+export function ImagePreview({ id, title, onClose }: { id: string; title: string; onClose: () => void }) {
+  return (
+    <Modal title={title} onClose={onClose} wide>
+      {/* eslint-disable-next-line @next/next/no-img-element -- authenticated evidence, not a static asset */}
+      <img src={`/api/evidence/${id}?view=1`} alt={title} className="w-full rounded-lg border border-slate-800" />
+      <div className="mt-4 flex justify-end">
+        <a href={`/api/evidence/${id}`} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-200 hover:bg-slate-700">
+          Download original
+        </a>
+      </div>
+    </Modal>
+  );
+}

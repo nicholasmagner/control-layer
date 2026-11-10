@@ -4,7 +4,7 @@ import { handle, HttpError, requireUser } from '@/auth/session';
 import { awsRegions } from '@/connectors/aws';
 import { describeError } from '@/connectors/common';
 import { prisma } from '@/db/prisma';
-import { appendEvidence } from '@/evidence/store';
+import { anchorChain, appendEvidence } from '@/evidence/store';
 import { logEvent } from '@/lib/events';
 import { readJson } from '@/lib/http';
 import { POLICY_NAME, remediationEnabled, REQUIRE_MFA_POLICY } from '@/lib/remediation';
@@ -60,6 +60,7 @@ export const POST = handle(async (req: Request) => {
     })).map(c => c.id),
     collectedBy: user.email,
   });
+  void anchorChain(user.email).catch(err => console.error('[timestamp]', err));
   await logEvent({ action: 'Require-MFA policy', actor: user.email, decision: 'Applied', resource: finding.resource ?? userName, reason: note });
   return NextResponse.json({ ok: true, message: `${note} The finding will close after the next scan sees MFA enabled.` });
 });

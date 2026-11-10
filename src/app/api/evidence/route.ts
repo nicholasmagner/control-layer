@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { handle, HttpError, requireUser } from '@/auth/session';
 import { recomputeAssessments } from '@/assessment/engine';
 import { prisma } from '@/db/prisma';
-import { appendEvidence } from '@/evidence/store';
+import { anchorChain, appendEvidence } from '@/evidence/store';
 import { logEvent } from '@/lib/events';
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -51,6 +51,8 @@ export const POST = handle(async (req: Request) => {
     collectedBy: user.email,
   });
   await recomputeAssessments();
+  // Timestamp the new chain head in the background; failures are logged.
+  void anchorChain(user.email).catch(err => console.error('[timestamp]', err));
   await logEvent({
     action: 'Evidence added', actor: user.email, decision: 'Completed', resource: title,
     reason: upload ? `${upload.name} (${Math.ceil(upload.data.byteLength / 1024)} KB)` : 'Written note',

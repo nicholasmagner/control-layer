@@ -27,6 +27,7 @@ async function build() {
     findings: [{ title: '=HYPERLINK("x")', severity: 'High', status: 'Open', resource: 'r', description: 'has, comma', createdAt: new Date('2026-02-01'), resolvedAt: null, acceptReason: null, acceptedBy: null }],
     events: [],
     chain: { ok: true, checked: 2, legacy: 0, head: 'def' },
+    timestamps: [],
   });
 }
 

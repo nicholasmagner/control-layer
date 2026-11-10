@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   // Don't auto-generate editor tooling files into the project root.
   agentRules: false,
+  // Rendering libraries with native/wasm parts are loaded from node_modules at runtime.
+  serverExternalPackages: ['satori', 'sharp'],
+  // Fonts used to render evidence images.
+  outputFileTracingIncludes: { '/**': ['./assets/fonts/**'] },
   async headers() {
     return [{
       source: '/:path*',
