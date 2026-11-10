@@ -1,68 +1,143 @@
-<img src="desktop/build/icon.svg" alt="" width="72" height="72">
+<div align="center">
+
+<img src="desktop/build/icon.svg" alt="ControlLayer" width="96" height="96">
 
 # ControlLayer
 
-**Open-source continuous compliance and audit evidence for small teams.**
+**Open-source compliance automation for teams without a compliance team.**
 
-ControlLayer scans your AWS, Google Cloud and Azure accounts, your Google Workspace, Microsoft 365 or on-premises Active Directory, your GitHub organization, and your own servers and laptops. It maps what it finds to SOC 2, ISO 27001, HIPAA, GDPR, CMMC, PCI DSS and the AI frameworks ISO 42001 and NIST AI RMF, gives you ready-made policies your team signs, runs your vendor, risk and access review programs, answers customer security questionnaires from live data, and collects the evidence your auditor will ask for. When the audit starts, you hand over a single package organized control by control, or give your auditor a read-only login. A public Trust Center shows customers how you protect their data.
+Continuous monitoring, policies, vendor and risk management, access reviews, security questionnaires and audit-ready evidence for SOC 2, ISO 27001, HIPAA and more. Self-hosted, read-only and free.
 
-It is built for companies without a compliance team: self-hosted, read-only by default, and free.
+[![CI](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9.svg)](./LICENSE)
+[![Desktop app](https://img.shields.io/badge/desktop-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-0ea5e9.svg)](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest)
 
-![Dashboard](./screenshots/dashboard.png)
+[**Download**](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest) · [**Quick start**](#get-started) · [**Features**](#features) · [**Frameworks**](#frameworks) · [**Docs**](#documentation)
 
-## What it does
+<br>
 
-- **Continuous checks.** 66 read-only checks across AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, Active Directory, GitHub, and servers and laptops: MFA, inactive users, key rotation, public storage, open SSH/RDP, encryption, audit logging, backups, code review, secret scanning, Dependabot and more.
-- **On-premises support.** A small read-only script for Linux, Windows and macOS reports each server's and laptop's disk encryption, firewall, updates, malware protection, screen lock, SSH/Remote Desktop settings, logging, password rules and local accounts, wherever the machine runs. Active Directory is checked over LDAP for password policy, stale accounts, Domain Admins and password exceptions.
-- **Offboarding checks.** Mark people as having left, and ControlLayer flags any Google Workspace, Microsoft 365, Active Directory or GitHub account they can still use.
-- **Eight frameworks, one set of evidence.** SOC 2, ISO 27001, HIPAA, GDPR, CMMC, PCI DSS, ISO 42001 and NIST AI RMF. Checks, policies and evidence are mapped once (with a crosswalk from SOC 2) and count toward every framework they support. Choose the ones you are working toward in Settings.
-- **Security questionnaires.** Upload a customer's questionnaire (Excel or CSV) and ControlLayer answers it from your live data: passing checks, published policies, sign-off, vendors, risks and Trust Center status. Each answer shows its confidence and sources; approve, edit, and download the customer's own spreadsheet with the answers filled in. Edits are remembered in your answer library.
-- **Vendor risk management.** A vendor inventory with automatic risk tiers from the data each vendor can access, a catalog of 72 common vendors, document tracking with expiry dates (SOC 2 reports, DPAs, BAAs), AI training checks for AI vendors, recorded reviews saved as evidence, a security questionnaire link vendors answer without an account, and a public subprocessor list.
-- **Access reviews.** Quarterly reviews built from the real accounts in Google Workspace, Microsoft 365, Active Directory, GitHub, AWS, Google Cloud and servers (or any system from a CSV). Accounts of people who left, unknown, unused and admin accounts are flagged; decisions are saved as evidence, and later scans confirm removals happened.
-- **Risk register.** A library of 30 common risks (including AI risks), suggestions from your failing checks and vendors, a heat map before and after controls, live status of the controls that treat each risk, formal risk acceptance, and a yearly risk assessment saved as evidence.
-- **Policies with employee sign-off.** 17 policy templates written for small companies (information security, acceptable use, access control, incident response, business continuity, privacy, responsible AI, AI acceptable use and more), already mapped to framework controls. Edit, publish, and send each person a personal link to read and accept them; no account needed. Every published version is saved as evidence, and the audit package includes who accepted which version and when.
-- **People directory.** Add employees and contractors by hand, from a CSV, or straight from Google Workspace or Microsoft 365.
-- **Trust Center.** A public page with your compliance status, the security practices your latest scans verify, and your policy list. Share your SOC 2 report and other documents with people who accept your confidentiality terms, through time-limited links you approve.
-- **Evidence collection for auditors.** Every scan result is stored as dated evidence. Upload policies, screenshots, access reviews and other documents and link them to controls. Each control lists what auditors typically request.
-- **Automatic evidence images.** Auditors often ask for screenshots showing a control is in place. Each scan produces screenshot-style images of the results (system, account, date and time in UTC, every resource checked, pass/fail, who collected it), filed under the right controls. A new image is made the first time, whenever a result changes, and on a schedule (default every 30 days), so a Type II audit period has a dated series. Images are labeled as generated from cloud API data, and each one shows the fingerprint of the raw data record it came from.
-- **Audit evidence package.** One click produces a ZIP for a framework and audit period: a control status summary, findings (including accepted risks), the activity log, an evidence index, and a folder per control with its evidence.
-- **Tamper-evident records.** Evidence is fingerprinted (SHA-256) when collected and linked in a hash chain, and the chain is independently timestamped by a public RFC 3161 Time-Stamp Authority (only a fingerprint is sent). Even someone with direct database access can't rewrite or backdate evidence without it showing up, and auditors can check the timestamps themselves with `openssl`.
-- **Findings that close themselves.** Failing resources become findings with step-by-step fixes. They resolve automatically when a later scan sees them fixed, or you can accept the risk with a documented reason.
-- **Auditor access.** Three roles: admin, member, and auditor (read-only, can download evidence).
-- **Sample company.** Load realistic sample data for every integration to explore everything before connecting an account.
+<img src="screenshots/dashboard.png" alt="ControlLayer dashboard showing readiness across eight frameworks" width="100%">
+
+</div>
+
+## Why ControlLayer
+
+Getting a SOC 2 report or answering a customer's security review usually means an expensive compliance platform, a pile of spreadsheets, or both. ControlLayer does the same job for free, on your own infrastructure.
+
+- **Connect once, stay ready.** Read-only connections to your cloud, identity and code platforms, plus your own servers and laptops. Checks run continuously, and every result is saved as dated evidence.
+- **One set of evidence, eight frameworks.** Work toward SOC 2 and get most of ISO 27001, HIPAA and the rest along the way. Each check, policy and review is mapped once and counts everywhere it applies.
+- **The whole program, not just the scans.** Policies with employee sign-off, vendor risk management, access reviews, a risk register and customer questionnaires all live in one place, and each one leaves an audit trail.
+- **Evidence an auditor can trust.** Every record is fingerprinted, hash-chained and independently timestamped, so nobody can quietly change or backdate it. Hand over one package, organized control by control.
+- **Your data stays yours.** Run it on a server or as a desktop app. Your compliance data never leaves your infrastructure (independent timestamps send only a fingerprint), and scans never change your systems.
+
+## Features
+
+### Continuous monitoring
+
+66 read-only checks across AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, Active Directory, GitHub, and your servers and laptops: MFA, inactive and former employees' accounts, key rotation, public storage, open SSH and RDP, encryption, audit logging, backups, code review, secret scanning and more. Failing resources become findings with step-by-step fixes, and they close themselves when the next scan sees the fix.
+
+<table>
+<tr>
+<td width="50%"><img src="screenshots/controls.png" alt="A control with its automated checks and evidence"></td>
+<td width="50%"><img src="screenshots/findings.png" alt="A finding with severity, affected resource and how to fix it"></td>
+</tr>
+<tr>
+<td align="center"><b>Controls</b>: live status, the checks behind it, and what auditors usually ask for</td>
+<td align="center"><b>Findings</b>: what failed, where, and exactly how to fix it</td>
+</tr>
+</table>
+
+### Servers and laptops, on-premises or anywhere
+
+A small, read-only script for Linux, Windows and macOS reports disk encryption, firewall, updates, malware protection, screen lock, remote login settings, logging, password rules and local accounts. Run it once or every day, or push it with Group Policy, Intune, Jamf or Ansible. ControlLayer never connects to your machines; they report in over HTTPS. Active Directory is checked over LDAP.
+
+<img src="screenshots/devices.png" alt="Devices page listing servers and laptops with their issues" width="100%">
+
+### Policies with employee sign-off
+
+17 policy templates written for small companies, including information security, access control, incident response, business continuity, privacy, responsible AI and AI acceptable use. They're already mapped to framework controls. Edit, publish, and send each person a personal link to read and accept them, with no account needed. Every version and every acceptance is kept as evidence.
+
+<img src="screenshots/policies.png" alt="Policies page showing published policies and sign-off progress" width="100%">
+
+### Vendor risk management
+
+A vendor inventory with automatic risk tiers based on the data each vendor can reach, and a catalog of 72 common vendors to add in one click. ControlLayer tracks SOC 2 reports, DPAs and BAAs with their expiry dates and checks whether AI vendors train on your data. It also sends vendors a security questionnaire they answer without an account, records reviews as evidence, and publishes your subprocessor list.
+
+<img src="screenshots/vendors.png" alt="Vendor list with risk tiers, open issues and review dates" width="100%">
+
+### Access reviews
+
+Quarterly access reviews built from the real accounts in Google Workspace, Microsoft 365, Active Directory, GitHub, AWS, Google Cloud and your servers, or from any system via CSV. Accounts belonging to people who left, unknown owners, unused accounts and admins are flagged for a closer look. Decisions are saved as evidence, and later scans confirm that removed access is actually gone.
+
+<img src="screenshots/access-reviews.png" alt="An access review in progress with flagged accounts and keep/remove decisions" width="100%">
+
+### Risk register
+
+Start from a library of 30 common risks, including AI risks, or let ControlLayer suggest them from your failing checks and vendors. Each risk shows a before-and-after heat map, the live status of the controls that treat it, and any formal risk acceptance with an expiry date. The yearly risk assessment is saved as evidence in one click.
+
+<img src="screenshots/risks.png" alt="Risk register with a heat map and open risks linked to controls" width="100%">
+
+### Security questionnaires, answered from live data
+
+Upload a customer's questionnaire as Excel or CSV. ControlLayer answers it from what it actually knows: passing checks, published policies, sign-off rates, vendors, risks and your Trust Center. Each answer shows its confidence and sources. Approve or edit the answers, then download the customer's own spreadsheet with them filled in. Your edits are remembered for next time.
+
+<img src="screenshots/questionnaires.png" alt="A customer questionnaire with suggested answers, confidence and sources" width="100%">
+
+### Trust Center
+
+A public page with your compliance status, the security practices your latest scans verify, your policies and your subprocessors. Share your SOC 2 report through time-limited links you approve, after the requester accepts your NDA terms.
+
+<img src="screenshots/trust-center.png" alt="Public Trust Center page with compliance status and subprocessors" width="100%">
+
+### Evidence and audits
+
+Every scan result, policy version, review and upload is stored as dated, fingerprinted evidence. For audits that need screenshots, ControlLayer generates dated images of each check's results, so a Type II audit period has a dated series. When the audit starts, download a ZIP for any framework and period, organized control by control. You can also give your auditor a read-only login.
+
+<table>
+<tr>
+<td width="50%"><img src="screenshots/evidence.png" alt="Evidence library and audit package export"></td>
+<td width="50%"><img src="screenshots/integrations.png" alt="Integrations page for connecting cloud, identity and code platforms"></td>
+</tr>
+<tr>
+<td align="center"><b>Evidence & Audits</b>: tamper-evident library and one-click audit package</td>
+<td align="center"><b>Integrations</b>: sign in with your browser or use a read-only key</td>
+</tr>
+</table>
 
 ## Frameworks
 
 | Framework | Coverage | Controls | Checked automatically | Covered by policy templates |
-| :--- | :--- | :--- | :--- | :--- |
-| **SOC 2** (Trust Services Criteria 2017, rev. 2022) | Security, Availability, Confidentiality | 38 | 13 | 36 |
-| **ISO/IEC 27001:2022** | All 93 Annex A controls | 93 | 20 | 65 |
+| :--- | :--- | ---: | ---: | ---: |
+| **SOC 2** (Trust Services Criteria) | Security, Availability, Confidentiality | 38 | 13 | 36 |
+| **ISO/IEC 27001:2022** | All Annex A controls | 93 | 20 | 65 |
 | **HIPAA Security Rule** | Administrative, physical and technical safeguards | 35 | 10 | 29 |
 | **GDPR** | Preview: key obligations | 16 | 1 | 14 |
 | **CMMC 2.0 Level 1** | All 17 practices | 17 | 12 | 16 |
 | **PCI DSS v4.0** | Preview: core requirements | 25 | 17 | 22 |
-| **ISO/IEC 42001:2023** (AI management) | All 38 Annex A controls | 38 | – | 23 |
+| **ISO/IEC 42001:2023** (AI management) | All Annex A controls | 38 | – | 23 |
 | **NIST AI RMF 1.0** | All 19 categories | 19 | – | 13 |
 
-Controls not covered by an automated check are met by publishing the matching policy and by the records ControlLayer keeps for you: vendor reviews, access reviews, the risk assessment, policy sign-off, and uploaded evidence. ISO 27001 mapping is a practical crosswalk for evidence reuse, not an official equivalence; certification also needs the management system clauses (scope, Statement of Applicability, internal audit, management review). Each control has a review window (for example 365 days for policies, 90 days for access reviews) after which it asks for fresh evidence. Mark any control you are not including in scope as *Not Applicable* with a reason, which is included in the audit package.
+Controls without an automated check are met by your published policies and by the records ControlLayer keeps: vendor reviews, access reviews, the risk assessment, policy sign-off and uploaded documents. See the [audit guide](./docs/audit-guide.md#how-controls-are-assessed) for details.
 
-## Screenshots
+## Integrations
 
-| Controls | Findings |
-| :---: | :---: |
-| ![Controls](./screenshots/controls.png) | ![Findings](./screenshots/findings.png) |
-| **Evidence & Audits** | **Integrations** |
-| ![Evidence](./screenshots/evidence.png) | ![Integrations](./screenshots/cloud-accounts.png) |
+| Category | Services |
+| :--- | :--- |
+| **Cloud** | AWS, Google Cloud, Microsoft Azure |
+| **Identity & email** | Google Workspace, Microsoft 365, Active Directory (on-premises) |
+| **Code** | GitHub |
+| **Servers & laptops** | Linux, Windows and macOS through the device agent |
+| **Anything else** | CSV import for people and access reviews; document upload for any evidence |
 
-## Download the desktop app
+Every connection is read-only. Missing permissions are reported as "not evaluated", never as passing.
 
-The easiest way to run ControlLayer: download the installer for Mac, Windows or Linux from the [latest release](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest), install it, and open it. It includes everything it needs, database included, and keeps your data on your computer. See [desktop/README.md](./desktop/README.md) for details.
+## Get started
 
-To run ControlLayer on a server your whole team and auditor can reach, use Docker instead (below).
+### Desktop app (easiest)
 
-## Quick start (Docker)
+Download the installer for **macOS, Windows or Linux** from the [latest release](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest), install it and open it. Everything is included, database too, and your data stays on your computer. Load the sample company to explore every feature before connecting anything.
 
-You need Docker with Compose.
+### Docker (for your team and your auditor)
 
 ```bash
 git clone https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst.git controllayer
@@ -71,159 +146,38 @@ cp .env.example .env          # set ORGANIZATION_NAME and CONTROLLAYER_SECRET_KE
 docker compose up -d --build
 ```
 
-Open <http://localhost:3000> and create the first admin account. Then load the sample data, or click **Connect** under **Integrations**.
+Open <http://localhost:3000>, create the first admin account, and either load the sample data or connect a service under **Integrations**. For anything beyond a laptop, run it behind HTTPS and change the database password. [Setup guide →](./docs/setup.md)
 
-Database migrations run automatically when the container starts. Uploaded evidence is stored in PostgreSQL, so back up the `postgres_data` volume.
+## Documentation
 
-For anything beyond a laptop, put ControlLayer behind HTTPS (for example Caddy, nginx or a cloud load balancer that sends `X-Forwarded-Proto: https`), change `POSTGRES_PASSWORD`, and remove the database port mapping from `docker-compose.yml`.
-
-## Connecting your accounts
-
-Open **Integrations** and click **Connect** on any service. There are two ways to connect:
-
-- **Sign in with your browser** (easiest, in the desktop app). ControlLayer runs the service's official sign-in (`aws login`, `gcloud auth application-default login`, `az login` for Azure and Microsoft 365, or `gh auth login` for GitHub), your browser opens, and you sign in as usual. Then you pick the account, project, subscription or organization to scan. This needs that command-line tool installed; the dialog links to it if it's missing. On a server, the same dialog shows the sign-in link and a box to paste the code into.
-- **Use a key**: an AWS access key, a Google Cloud service account key file, an Azure service principal, a Microsoft 365 app registration, a GitHub personal access token, or (for Google Workspace, which has no browser sign-in) a service account with domain-wide delegation. The dialog shows the few steps to create one. Keys are checked with the cloud before saving and stored encrypted (`CONTROLLAYER_SECRET_KEY`). This is the best choice for automatic scheduled scans; AWS browser sessions last up to 12 hours.
-
-Either way, ControlLayer only reads configuration. The permissions it needs:
-
-| Service | Read-only permissions |
+| Guide | What's in it |
 | :--- | :--- |
-| **AWS** | Managed policy `SecurityAudit` (browser sign-in also needs `SignInLocalDevelopmentAccess`) |
-| **Google Cloud** | `Viewer` + `Security Reviewer` on the project |
-| **Azure** | `Reader` + `Security Reader` on the subscription |
-| **Google Workspace** | Domain-wide delegation for the scope `admin.directory.user.readonly`, acting as an admin |
-| **Microsoft 365** | Graph `User.Read.All`, `AuditLog.Read.All`, `Policy.Read.All`, `RoleManagement.Read.Directory` (or sign in as a Global Reader). Sign-in activity and MFA registration reports need Microsoft Entra ID P1 or P2. |
-| **GitHub** | Token scopes `repo` and `read:org`, from an organization owner (owners can see 2FA status and security settings) |
-| **Active Directory** | A regular domain user (no admin rights). ControlLayer must reach a domain controller over `ldaps://` (636) or `ldap://` with StartTLS. |
+| [Setup](./docs/setup.md) | Connecting each service and the permissions it needs, the device agent, scheduled scans, configuration |
+| [Audit guide](./docs/audit-guide.md) | From first scan to handing your auditor the evidence package |
+| [Development](./docs/development.md) | Running from source, architecture, adding checks and frameworks |
+| [Desktop app](./desktop/README.md) | How the desktop app is built and where it keeps your data |
 
-If a permission is missing, the scan still runs everything it can and lists the sections it could not read. Those checks are reported as not evaluated, never as passing. The first real scan automatically removes the sample data.
+## Security
 
-Server installs can still use environment variables instead; see [`.env.example`](./.env.example).
-
-### Servers and laptops (on-premises or anywhere)
-
-Open **Devices** and click **Add a device**. Copy the one-line command for Linux, macOS or Windows and run it on each machine as root / Administrator (or push it with Group Policy, Intune, Jamf or Ansible). With **Run every day** it also adds a daily job (cron, launchd or a scheduled task), so reports stay current.
-
-- The script only reads settings and sends them over HTTPS to your ControlLayer server; machines need to reach that address, ControlLayer never connects to them. Check what it would send with `--print` (`-Print` on Windows).
-- Machines authenticate with a device key that can only submit reports. Replace it any time under Devices.
-- Device checks re-run automatically a few minutes after reports arrive. Settings a script cannot read are reported as not evaluated, never as passing.
-- The scripts are in [`assets/agent/`](./assets/agent/) for review.
-
-### Scheduled scans
-
-Set `SCAN_INTERVAL_HOURS=24` to scan every configured account daily while the server runs. Alternatively, run `npm run scan` from cron or a scheduled job. It exits non-zero if a scan fails.
-
-## Preparing for an audit
-
-1. **Scope.** Pick your framework in the sidebar and mark controls outside your audit scope as Not Applicable, with a reason.
-2. **Fix.** Work through **Findings**, starting with High severity. Accept risks you won't fix, with a reason.
-3. **Policies.** Under **Policies**, add the templates, adjust them to how you work, and publish. Add your team under **People** and send everyone their sign-off link. Mark people as having left when they go, so the offboarding checks can confirm their access is gone.
-4. **Run the program.** Add your vendors and record reviews for the high-risk ones; add risks from the library and complete the risk assessment; run a quarterly access review. Each of these is saved as dated evidence.
-5. **Document.** For each control still showing *Needs Evidence*, upload what the control lists under "What auditors usually ask for". One document can support several controls and frameworks.
-6. **Assign owners** to controls so everyone knows who keeps evidence current.
-7. **Invite your auditor** under **Settings** with the *Auditor* role. They can review everything and download packages, but cannot change anything.
-8. **Export.** Under **Evidence & Audits**, choose the framework and audit period and download the package. It includes each published policy version and who accepted it. Record the *chain head* printed in its `README.txt`; a later package whose chain still contains it shows that earlier evidence was not altered.
-
-## Running locally for development
-
-Requirements: Node.js 22+, PostgreSQL 15+ (or `docker compose up -d db`).
-
-```bash
-npm install
-cp .env.example .env              # DATABASE_URL points at the compose database on port 5433
-npm run db:migrate                # create tables
-npm run db:seed                   # load the framework catalog (SEED_SAMPLE_DATA=true to add sample data)
-npm run dev                       # http://localhost:3000
-```
-
-| Command | What it does |
-| :--- | :--- |
-| `npm test` | Unit tests (checks, evidence chain, audit package, scoring, auth helpers) |
-| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
-| `npm run build` | Production build |
-| `npm run scan [aws gcp azure gworkspace m365 github ad devices]` | Scan configured integrations from the command line |
-| `node scripts/screenshots.mjs URL` | Regenerate the README screenshots (needs Playwright) |
-
-## Configuration
-
-Admins change workspace settings in the app under **Settings**: organization name, automatic scan schedule, how often evidence images refresh, independent timestamps, the one-click AWS fix, and the optional assistant's API key. Changes apply immediately. Services are connected under **Integrations**, and the public page is set up under **Trust Center**.
-
-Server installs also read these environment variables (see [`.env.example`](./.env.example)). A value saved in the app takes priority.
-
-| Variable | Purpose |
-| :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string (required) |
-| `CONTROLLAYER_SECRET_KEY` | Encrypts keys saved in the app: cloud keys and the assistant API key (`openssl rand -base64 32`) |
-| `ORGANIZATION_NAME`, `SCAN_INTERVAL_HOURS`, `SNAPSHOT_INTERVAL_DAYS`, `TIMESTAMP_AUTHORITY_URL`, `ENABLE_AWS_REMEDIATION`, `ASSISTANT_API_KEY`, `ASSISTANT_MODEL` | Defaults for the settings above |
-| `AWS_*`, `GCP_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*`, `GITHUB_ORG` + `GITHUB_TOKEN` | Optional: credentials from the environment instead of the app |
-| `SECURE_COOKIES` | Force HTTPS-only session cookies (automatic behind an HTTPS proxy) |
-
-## How it works
-
-```
-cloud APIs ──► connectors (read-only)  ──► normalized inventory
-                                               │
-                                               ▼
-                                      checks (pure functions)
-                                               │
-              ┌────────────────────────────────┼─────────────────────────────┐
-              ▼                                ▼                             ▼
-     findings (open / resolve)       evidence (hash-chained)      control status per framework
-                                               │
-                                               ▼
-                                   audit package (ZIP + manifest)
-```
-
-- `src/frameworks/`: control catalogs (SOC 2, CMMC, PCI DSS) with expected evidence.
-- `src/connectors/`: AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, GitHub and Active Directory collectors, browser sign-in, plus the sample company.
-- `src/devices/` and `assets/agent/`: the device agent scripts, the report format and the report endpoint.
-- `src/policies/`: policy templates, publishing, sign-off links and the safe Markdown renderer.
-- `src/questionnaires/`: the answer bank (written from live data), question matching and spreadsheet import/export.
-- `src/vendors/`, `src/access/`, `src/risks/`: vendor risk, access reviews and the risk register; each saves its records as evidence.
-- `src/frameworks/crosswalk.ts`: how SOC 2 evidence also counts toward ISO 27001, HIPAA and GDPR.
-- `src/trust/`: Trust Center settings, verified practices and access links.
-- `src/checks/`: checks over the normalized inventory, each mapped to framework controls. They don't call cloud APIs, so they are unit-tested directly.
-- `src/scan/`: runs a scan, records results, opens and closes findings, stores evidence.
-- `src/assessment/`: deterministic control status (Met, Partially Met, Not Met, Needs Evidence, Not Applicable).
-- `src/evidence/`: hash chain, RFC 3161 timestamps, evidence image rendering, integrity verification and the audit package builder.
-
-### Adding a check
-
-Add an entry to the provider's file in `src/checks/` (`aws.ts`, `gcp.ts`, `azure.ts`, `identity.ts`, `github.ts` or `devices.ts`) with the controls it maps to. If it needs data that isn't collected yet, extend the inventory type and its collector in `src/connectors/`. Add a test in `src/checks/checks.test.ts`. The test suite fails if a check maps to a control that doesn't exist.
-
-### Adding a framework
-
-Create `src/frameworks/<name>.ts` following `soc2.ts`, register it in `src/frameworks/index.ts` and in `FRAMEWORK_GROUPS` (`src/components/ui.tsx`), and either add its control IDs to the relevant checks or extend the crosswalk in `src/frameworks/crosswalk.ts`. The control table syncs on startup, and existing evidence is linked to crosswalked controls automatically.
-
-## Security notes
-
-- Scans use read-only permissions; the only write action (`ENABLE_AWS_REMEDIATION`) is opt-in and admin-only.
-- Passwords are hashed with scrypt; sessions are random tokens stored hashed; sign-in attempts are rate limited.
-- Mutating requests require a same-site session cookie and are rejected from other origins.
-- Uploaded files are always served as downloads, never rendered in the browser.
-- Policy sign-off and Trust Center access links are random tokens stored hashed; Trust Center links expire, can be revoked, and every download is logged. The request form is rate limited.
-- The Trust Center only shows practices backed by real scans in which every related check passes, never sample data or individual findings.
-- The evidence chain is tamper-*evident*: changes are detected, not prevented. Independent RFC 3161 timestamps mean even a full rebuild of the chain by someone with database access is detected. Each audit package includes the signed timestamp tokens and instructions for verifying them with `openssl`.
+- Scans only read configuration. The one optional write action (a one-click AWS fix) is off by default and admin-only.
+- Passwords are hashed with scrypt, sessions are hashed random tokens, and sign-in is rate limited.
+- Evidence is tamper-*evident*: fingerprinted with SHA-256, hash-chained, and timestamped by an independent RFC 3161 authority. Auditors can verify the timestamps themselves with `openssl`.
+- Sign-off, Trust Center and vendor links are random, hashed tokens; Trust Center links expire and every download is logged.
 
 Please report vulnerabilities privately; see [SECURITY.md](./SECURITY.md).
 
 ## Roadmap
 
-- Browser extension: one-click screenshots of any admin page (Azure, Google Workspace, GitHub, Okta) stamped with URL, time and user, uploaded to ControlLayer
-- Optional real AWS console screenshots via read-only console federation
+- Browser extension for one-click, stamped screenshots of any admin console
 - Full PCI DSS and GDPR catalogs; EU AI Act obligations
-- More connectors: Okta, GitLab, Jira, HR systems, device management (MDM)
-- Security awareness training tracking
-- Email reminders for policy sign-off and reviews
-- Evidence request lists that auditors can comment on
+- Connectors for Okta, GitLab, Jira, HR systems and device management (MDM)
+- Security awareness training tracking and email reminders
 - Single sign-on (SAML / OIDC)
 
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+Ideas and pull requests are welcome; see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
 [MIT](./LICENSE). Evidence images use the Inter typeface (SIL Open Font License, see `assets/fonts/`).
 
-ControlLayer helps you prepare for audits; it does not certify compliance. Framework descriptions are plain-language summaries. Refer to the official standards (AICPA Trust Services Criteria, CMMC, PCI DSS) for authoritative wording.
+ControlLayer helps you prepare for audits; it does not certify compliance. A SOC 2 report must come from an independent CPA firm. Framework descriptions are plain-language summaries; refer to the official standards for authoritative wording.
