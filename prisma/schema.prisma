@@ -7,66 +7,189 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Policy {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  content     Json     
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isActive    Boolean  @default(true)
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  // 'admin' | 'member' | 'auditor'
+  role         String    @default("member")
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  sessions Session[]
 }
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Frameworks and controls
+// The control catalog lives in src/frameworks and is synced into this table.
+// ---------------------------------------------------------------------------
 
 model Control {
   id          String   @id @default(uuid())
-  framework   String   
-  controlId   String   
+  framework   String
+  controlId   String
   name        String
   description String
+  category    String   @default("")
+  applicable  Boolean  @default(true)
+  naReason    String?
+  owner       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  scores      AssessmentScore[]
-}
+  scores   AssessmentScore[]
+  evidence EvidenceControl[]
 
-model EventLog {
-  id          String   @id @default(uuid())
-  action      String   
-  actor       String   
-  resource    String?
-  decision    String   
-  reason      String?
-  timestamp   DateTime @default(now())
-  metadata    Json?    
-}
-
-model EvidenceArtifact {
-  id          String   @id @default(uuid())
-  title       String
-  content     Json     
-  source      String   
-  collectedAt DateTime @default(now())
+  @@unique([framework, controlId])
 }
 
 model AssessmentScore {
-  id          String   @id @default(uuid())
-  controlId   String
-  status      String   
+  id            String   @id @default(uuid())
+  controlId     String
+  // 'Met' | 'Partially Met' | 'Not Met' | 'Needs Evidence' | 'Not Applicable'
+  status        String
   justification String?
-  evaluatedAt DateTime @default(now())
+  evaluatedAt   DateTime @default(now())
 
-  control     Control  @relation(fields: [controlId], references: [id])
+  control Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@index([controlId, evaluatedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Scans
+// ---------------------------------------------------------------------------
+
+model CheckRun {
+  id         String    @id @default(uuid())
+  // 'aws' | 'gcp' | 'azure'
+  provider   String
+  // 'running' | 'success' | 'partial' | 'error'
+  status     String    @default("running")
+  error      String?
+  isSample   Boolean   @default(false)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  results CheckResult[]
+
+  @@index([provider, startedAt])
+}
+
+model CheckResult {
+  id           String   @id @default(uuid())
+  runId        String
+  checkId      String
+  provider     String
+  resourceId   String
+  resourceName String?
+  // 'pass' | 'fail'
+  status       String
+  message      String
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  run CheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([checkId])
 }
 
 model Finding {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String
-  severity    String   // 'High', 'Medium', 'Low'
-  resource    String?  // Target asset or ARN
-  remediation String?  @db.Text
+  // 'High' | 'Medium' | 'Low'
+  severity    String
+  resource    String?
+  remediation String?   @db.Text
   details     Json?
-  status      String   @default("Open") // 'Open', 'Resolved', 'Suppressed'
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // 'Open' | 'Resolved' | 'Accepted'
+  status      String    @default("Open")
+  checkId     String?
+  provider    String?
+  isSample    Boolean   @default(false)
+  acceptedBy  String?
+  acceptReason String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([checkId, resource, status])
+}
+
+// ---------------------------------------------------------------------------
+// Evidence
+// Every non-sample artifact is appended to a SHA-256 hash chain (seq order) so
+// any later edit, deletion or reordering is detectable.
+// ---------------------------------------------------------------------------
+
+model EvidenceArtifact {
+  id          String    @id @default(uuid())
+  seq         Int       @unique @default(autoincrement())
+  title       String
+  description String?
+  // 'automated' | 'upload' | 'note'
+  kind        String    @default("automated")
+  source      String
+  content     Json?
+  fileName    String?
+  mimeType    String?
+  fileSize    Int?
+  fileData    Bytes?
+  sha256      String?
+  prevHash    String?
+  chainHash   String?
+  isSample    Boolean   @default(false)
+  collectedBy String?
+  collectedAt DateTime  @default(now())
+
+  controls EvidenceControl[]
+
+  @@index([collectedAt])
+}
+
+model EvidenceControl {
+  evidenceId String
+  controlId  String
+
+  evidence EvidenceArtifact @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  control  Control          @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@id([evidenceId, controlId])
+  @@index([controlId])
+}
+
+// ---------------------------------------------------------------------------
+// Activity log: who did what, when.
+// ---------------------------------------------------------------------------
+
+model EventLog {
+  id        String   @id @default(uuid())
+  action    String
+  actor     String
+  resource  String?
+  decision  String
+  reason    String?
+  timestamp DateTime @default(now())
+  metadata  Json?
+
+  @@index([timestamp])
 }

@@ -1,87 +1,127 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Cloud, Server, Database, Plug, RefreshCw } from "lucide-react";
+import { CheckCircle2, Cloud, ExternalLink, FlaskConical, Play, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import type { TabProps } from './AppShell';
+import { api, Button, Card, cx, ErrorText, formatDate, PageHeader } from './ui';
 
-export default function ConnectorsTab() {
-  const [isSyncingAws, setIsSyncingAws] = useState(false);
-  const [awsStatus, setAwsStatus] = useState("Disconnected");
+interface ScanSummary { ok: boolean; error?: string; checksEvaluated: number; passed: number; failed: number; newFindings: number; resolvedFindings: number; warnings: string[]; checksSkipped: string[] }
 
-  const connectors = [
-    { id: 'aws', name: 'AWS CloudTrail', status: awsStatus, type: 'cloud', icon: Cloud },
-    { id: 'azure', name: 'Azure Activity Logs', status: 'Disconnected', type: 'cloud', icon: Cloud },
-    { id: 'onprem', name: 'Active Directory (On-Prem)', status: 'Connected', type: 'server', icon: Server },
-    { id: 'db', name: 'PostgreSQL Telemetry', status: 'Connected', type: 'db', icon: Database },
-  ];
+export default function ConnectorsTab({ data, refresh }: TabProps) {
+  const canEdit = data.user.role !== 'auditor';
+  const [running, setRunning] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, ScanSummary | { error: string }>>({});
+  const [sampleBusy, setSampleBusy] = useState(false);
+  const [sampleError, setSampleError] = useState('');
 
-  const handleConnect = async (id: string) => {
-    if (id === 'aws') {
-      setIsSyncingAws(true);
-      setAwsStatus("Syncing...");
-      try {
-        const res = await fetch('/api/connectors/aws/sync', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          setAwsStatus("Connected");
-        } else {
-          setAwsStatus("Error");
-          alert(data.error || "Failed to sync with AWS.");
-        }
-      } catch (err) {
-        setAwsStatus("Error");
-        alert("Failed to connect to backend sync service.");
-      } finally {
-        setIsSyncingAws(false);
-      }
+  async function scan(provider: string) {
+    setRunning(provider);
+    setResults(r => ({ ...r, [provider]: undefined as never }));
+    try {
+      const res = await fetch('/api/scans', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) });
+      const body = await res.json();
+      setResults(r => ({ ...r, [provider]: res.ok || body.error === undefined ? body : { error: body.error } }));
+      refresh();
+    } catch (err) {
+      setResults(r => ({ ...r, [provider]: { error: (err as Error).message } }));
+    } finally {
+      setRunning(null);
     }
-  };
+  }
+
+  async function sample(method: 'POST' | 'DELETE') {
+    setSampleBusy(true);
+    setSampleError('');
+    try {
+      await api('/api/sample-data', { method });
+      refresh();
+    } catch (err) {
+      setSampleError((err as Error).message);
+    } finally {
+      setSampleBusy(false);
+    }
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Integration Connectors</h2>
-        <p className="text-slate-400 mt-2">Manage optional cloud and on-premise data sources.</p>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        title="Cloud accounts"
+        subtitle={<>Scans are <strong className="text-slate-300">read-only</strong>: ControlLayer reads configuration and never changes your cloud. {data.features.scanIntervalHours ? `Automatic scans run every ${data.features.scanIntervalHours} hour(s).` : 'Set SCAN_INTERVAL_HOURS to scan automatically.'}</>}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {connectors.map(c => {
-          const Icon = c.icon;
-          const isConnected = c.status === 'Connected';
-          
+      <div className="grid gap-6 lg:grid-cols-3">
+        {data.connectors.map(c => {
+          const result = results[c.provider];
+          const last = c.lastRun;
           return (
-            <div key={c.id} className="border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors rounded-xl p-6 group">
-              <div className="flex justify-between items-start mb-6">
-                <div className={`p-3 rounded-xl ${isConnected ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-800 text-slate-400'}`}>
-                  <Icon size={24} />
-                </div>
-                <div className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${isConnected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                  {c.status}
-                </div>
+            <Card key={c.provider} className="flex flex-col p-6">
+              <div className="flex items-start justify-between">
+                <div className={cx('rounded-xl p-3', c.configured ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-800 text-slate-500')}><Cloud /></div>
+                <span className={cx('rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                  c.configured ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-slate-800 text-slate-400')}>
+                  {c.configured ? 'Configured' : 'Not configured'}
+                </span>
               </div>
-              
-              <h3 className="text-lg font-bold text-slate-200">{c.name}</h3>
-              <p className="text-slate-500 text-sm mt-2 mb-6 h-10">
-                {c.id === 'aws' || c.id === 'azure' ? 'Optional cloud connector plugin. Read-only API ingestion.' : 'Native integration data source.'}
-              </p>
-              
-              <button 
-                onClick={() => handleConnect(c.id)}
-                disabled={isSyncingAws && c.id === 'aws'}
-                className={`w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                  isConnected 
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' 
-                    : isSyncingAws && c.id === 'aws'
-                    ? 'bg-sky-500/50 text-white cursor-not-allowed'
-                    : 'bg-sky-600 hover:bg-sky-500 text-white'
-                }`}
-              >
-                {isSyncingAws && c.id === 'aws' ? <RefreshCw size={16} className="animate-spin" /> : <Plug size={16} />}
-                {isSyncingAws && c.id === 'aws' ? 'Syncing...' : isConnected ? 'Configure' : 'Connect'}
-              </button>
-            </div>
+              <h3 className="mt-4 text-lg font-semibold text-slate-100">{c.name}</h3>
+              <p className="text-xs text-slate-500">{c.target} · {c.checkCount} checks</p>
+
+              <div className="mt-4 text-sm">
+                {last ? (
+                  <p className="flex items-center gap-2 text-slate-400">
+                    {last.status === 'error' ? <XCircle size={14} className="text-red-400" /> : <CheckCircle2 size={14} className="text-emerald-400" />}
+                    Last scan {formatDate(last.startedAt, true)}{last.isSample ? ' (sample)' : ''}{last.status === 'partial' ? ' · some sections unreadable' : ''}
+                  </p>
+                ) : <p className="text-slate-500">Never scanned.</p>}
+                {last?.status === 'error' && last.error && <p className="mt-2 break-words text-xs text-red-300">{last.error}</p>}
+              </div>
+
+              {result && 'error' in result && result.error && <div className="mt-3"><ErrorText>{result.error}</ErrorText></div>}
+              {result && 'ok' in result && result.ok && (
+                <div className="mt-3 rounded-lg bg-slate-950/60 p-3 text-xs text-slate-300">
+                  <p>{result.checksEvaluated} checks · {result.passed} passing · <span className="text-red-400">{result.failed} failing</span> resources</p>
+                  <p className="text-slate-500">{result.newFindings} new findings · {result.resolvedFindings} resolved</p>
+                  {result.warnings.length > 0 && (
+                    <details className="mt-2 text-amber-300"><summary>{result.warnings.length} section(s) could not be read</summary>
+                      <ul className="mt-1 list-inside list-disc text-amber-200/80">{result.warnings.map(w => <li key={w} className="break-words">{w}</li>)}</ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
+              <details className="mt-4 text-xs text-slate-400">
+                <summary className="cursor-pointer text-slate-300">Setup instructions</summary>
+                <div className="mt-2 space-y-2">
+                  <p>Set these environment variables on the server, then restart:</p>
+                  <ul className="space-y-1">{c.setup.env.map(e => <li key={e} className="rounded bg-slate-950 px-2 py-1 font-mono text-[11px]">{e}</li>)}</ul>
+                  <p>{c.setup.permissions}</p>
+                  <a href={c.setup.docs} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300">Provider docs <ExternalLink size={11} /></a>
+                </div>
+              </details>
+
+              <div className="mt-auto pt-5">
+                <Button className="w-full" disabled={!canEdit || !!running} onClick={() => scan(c.provider)}
+                  variant={c.configured ? 'primary' : 'secondary'} title={canEdit ? undefined : 'Auditors cannot run scans'}>
+                  <Play size={14} /> {running === c.provider ? 'Scanning… (can take a minute)' : 'Scan now'}
+                </Button>
+              </div>
+            </Card>
           );
         })}
       </div>
+
+      {canEdit && (
+        <Card className="flex flex-col gap-4 p-6 md:flex-row md:items-center">
+          <FlaskConical className="shrink-0 text-amber-400" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-100">Sample data</h3>
+            <p className="text-sm text-slate-400">Load a fictional company with AWS, Google Cloud and Azure accounts to try every feature. Sample data never mixes with your real evidence and is removed by your first real scan.</p>
+            <ErrorText>{sampleError}</ErrorText>
+          </div>
+          {data.features.hasSampleData
+            ? <Button variant="secondary" disabled={sampleBusy} onClick={() => sample('DELETE')}>Clear sample data</Button>
+            : <Button variant="secondary" disabled={sampleBusy} onClick={() => sample('POST')}>{sampleBusy ? 'Loading…' : 'Load sample data'}</Button>}
+        </Card>
+      )}
     </div>
   );
 }

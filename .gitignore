@@ -17,12 +17,6 @@
 /.next/
 /out/
 
-# `next dev` (16.3.x) auto-regenerates these with a "managed agent rules"
-# block instructing AI coding agents to read node_modules internals and to
-# commit the file "to keep the tree clean." Not something we want tracked -
-# see node_modules/next/dist/server/lib/generate-agent-files.js.
-/AGENTS.md
-/CLAUDE.md
 
 # production
 /build
