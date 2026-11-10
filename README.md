@@ -40,6 +40,12 @@ HIPAA and GDPR are on the roadmap.
 | **Evidence & Audits** | **Cloud accounts** |
 | ![Evidence](./screenshots/evidence.png) | ![Cloud accounts](./screenshots/cloud-accounts.png) |
 
+## Download the desktop app
+
+The easiest way to run ControlLayer: download the installer for Mac, Windows or Linux from the [latest release](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest), install it, and open it. It includes everything it needs, database included, and keeps your data on your computer. See [desktop/README.md](./desktop/README.md) for details.
+
+To run ControlLayer on a server your whole team and auditor can reach, use Docker instead (below).
+
 ## Quick start (Docker)
 
 You need Docker with Compose.

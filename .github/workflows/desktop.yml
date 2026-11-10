@@ -1,0 +1,98 @@
+name: Desktop installers
+
+# Builds the Mac, Windows and Linux installers on each platform, launches every
+# packaged app for a smoke test, and attaches the installers to a GitHub
+# Release when a version tag (v1.2.3) is pushed.
+
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    paths:
+      - 'desktop/**'
+      - 'scripts/prepare-standalone.mjs'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux (x64)
+            os: ubuntu-latest
+            target: --linux AppImage deb
+            smoke: xvfb-run -a node scripts/smoke-test.mjs
+          - name: Windows (x64)
+            os: windows-latest
+            target: --win nsis --x64
+            smoke: node scripts/smoke-test.mjs
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+            target: --mac dmg --arm64
+            smoke: node scripts/smoke-test.mjs
+          - name: macOS (Intel)
+            os: macos-15-intel
+            target: --mac dmg --x64
+            smoke: node scripts/smoke-test.mjs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Build the ControlLayer server
+        run: |
+          npm ci
+          npm run build
+          node scripts/prepare-standalone.mjs
+        env:
+          NEXT_OUTPUT: standalone
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Build the installer
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run dist -- ${{ matrix.target }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke test the packaged app
+        working-directory: desktop
+        run: ${{ matrix.smoke }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            desktop/release/ControlLayer-*
+            !desktop/release/*.blockmap
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installers/*
+          generate_release_notes: true
