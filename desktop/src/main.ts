@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, shell, utilityProcess, type UtilityProcess } from 'electron';
 import EmbeddedPostgres from 'embedded-postgres';
+import { execFile } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, type WriteStream } from 'node:fs';
 import { createServer } from 'node:net';
 import { networkInterfaces } from 'node:os';
@@ -18,6 +19,7 @@ const DB_USER = 'controllayer';
 
 let window: BrowserWindow | null = null;
 let postgres: EmbeddedPostgres | null = null;
+let pgCtl: string | null = null; // Windows: the database runs under pg_ctl (see startPostgres)
 let server: UtilityProcess | null = null;
 let appUrl = '';
 let shareUrl = '';
@@ -66,7 +68,7 @@ async function startDatabase(): Promise<string> {
     setStatus('Creating your local database (first start only)…');
     await postgres.initialise();
   }
-  await postgres.start();
+  await startPostgres(port);
 
   const admin = postgres.getPgClient('postgres', '127.0.0.1');
   await admin.connect();
@@ -83,6 +85,43 @@ async function startDatabase(): Promise<string> {
     await client.end();
   }
   return `postgresql://${DB_USER}:${encodeURIComponent(password)}@127.0.0.1:${port}/${DB_NAME}`;
+}
+
+const run = (file: string, args: string[]) => new Promise<string>((resolve, reject) => {
+  execFile(file, args, { windowsHide: true }, (err, stdout, stderr) => (err ? reject(new Error(`${err.message}\n${stderr}`)) : resolve(stdout)));
+});
+
+/**
+ * On Windows, PostgreSQL refuses to run under an account with active
+ * administrator rights (UAC off, "Run as administrator", many managed PCs).
+ * pg_ctl starts it with those rights removed, so use it there.
+ */
+async function startPostgres(port: number) {
+  if (process.platform !== 'win32') return postgres!.start();
+  const pkg = '@embedded-postgres/windows-x64';
+  const { pg_ctl } = (await import(pkg)) as { pg_ctl: string };
+  pgCtl = pg_ctl;
+  // A database left running by a crash would block the start; stop it first.
+  try {
+    await run(pg_ctl, ['status', '-D', P.postgres]);
+    log('db', 'Stopping a database left running by a previous session');
+    await run(pg_ctl, ['stop', '-w', '-m', 'fast', '-D', P.postgres]);
+  } catch { /* not running */ }
+  const out = await run(pg_ctl, ['start', '-w', '-t', '120', '-D', P.postgres, '-l', path.join(P.logs, 'postgres-server.log'), '-o', `-p ${port}`]);
+  log('db', out);
+}
+
+async function stopPostgres() {
+  if (pgCtl) {
+    try { log('db', await run(pgCtl, ['stop', '-w', '-m', 'fast', '-D', P.postgres])); } catch (err) { log('db', `stop failed: ${String(err)}`); }
+    pgCtl = null;
+    postgres = null;
+    return;
+  }
+  if (postgres) {
+    try { await postgres.stop(); } catch (err) { log('db', `stop failed: ${String(err)}`); }
+    postgres = null;
+  }
 }
 
 async function startServer(databaseUrl: string) {
@@ -143,10 +182,7 @@ async function stopServer() {
 async function shutdown() {
   quitting = true;
   await stopServer();
-  if (postgres) {
-    try { await postgres.stop(); } catch (err) { log('db', `stop failed: ${String(err)}`); }
-    postgres = null;
-  }
+  await stopPostgres();
   logs?.app.end(); logs?.server.end(); logs?.db.end();
 }
 

@@ -41,7 +41,8 @@ async function call(method, url, body) {
 function stop() {
   if (exited) return;
   if (process.platform === 'win32') {
-    try { execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F']); } catch { /* already gone */ }
+    // Like closing the window: lets the app shut its database down cleanly.
+    try { execFileSync('taskkill', ['/pid', String(child.pid), '/T']); } catch { /* already gone */ }
   } else {
     child.kill('SIGTERM');
   }
@@ -83,5 +84,8 @@ try {
 } finally {
   stop();
   for (let i = 0; i < 30 && !exited; i++) await sleep(500);
+  if (!exited && process.platform === 'win32') {
+    try { execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F']); } catch { /* already gone */ }
+  }
   try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* files may still be locked on Windows */ }
 }
