@@ -1,0 +1,82 @@
+# Builds the desktop installers. Run from desktop/ after building the server:
+#   (repo root)  NEXT_OUTPUT=standalone npm run build && node scripts/prepare-standalone.mjs
+#   (desktop/)   npm run dist
+# macOS installers must be built on a Mac and Windows installers on Windows;
+# .github/workflows/desktop.yml builds all of them.
+
+appId: dev.controllayer.app
+productName: ControlLayer
+copyright: Copyright © 2026 ControlLayer contributors
+artifactName: ControlLayer-${version}-${os}-${arch}.${ext}
+
+# Installers are attached to GitHub Releases by .github/workflows/desktop.yml.
+publish:
+  provider: github
+  owner: nicholasmagner
+  repo: ControlLayer-SOC-2-GRC-Analyst
+  releaseType: release
+
+directories:
+  output: release
+  buildResources: build
+
+# The server is started as a separate Node process, so the app is not packed
+# into an asar archive; native modules and the database binaries stay plain files.
+asar: false
+npmRebuild: false
+
+files:
+  - dist/**
+  - package.json
+  - node_modules/**
+
+# The server bundle is copied in by this hook (extraResources skips node_modules).
+afterPack: scripts/after-pack.cjs
+
+mac:
+  category: public.app-category.business
+  icon: build/icon.png
+  target: dmg
+  # Ad-hoc signed: required for Apple Silicon, no Apple Developer ID needed.
+  # Users approve the app once (see desktop/README.md). For Developer ID
+  # signing and notarization, remove these two lines and provide CSC_LINK,
+  # CSC_KEY_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID.
+  identity: "-"
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  title: ControlLayer ${version}
+
+win:
+  icon: build/icon.png
+  target: nsis
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ControlLayer
+
+linux:
+  icon: build/icon.png
+  category: Office
+  maintainer: ControlLayer contributors <noreply@controllayer.dev>
+  synopsis: Continuous compliance and audit evidence
+  target:
+    - AppImage
+    - deb
+
+appImage:
+  # Many distributions block the Chromium sandbox helper inside AppImages.
+  # The window only ever shows the local ControlLayer app.
+  executableArgs:
+    - --no-sandbox
+
+deb:
+  depends:
+    - libnss3
+    - libgtk-3-0
+    - libxss1

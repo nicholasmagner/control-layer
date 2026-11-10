@@ -7,66 +7,648 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Policy {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  content     Json     
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  isActive    Boolean  @default(true)
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  // 'admin' | 'member' | 'auditor'
+  role         String    @default("member")
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  sessions Session[]
 }
+
+model Session {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Frameworks and controls
+// The control catalog lives in src/frameworks and is synced into this table.
+// ---------------------------------------------------------------------------
 
 model Control {
   id          String   @id @default(uuid())
-  framework   String   
-  controlId   String   
+  framework   String
+  controlId   String
   name        String
   description String
+  category    String   @default("")
+  applicable  Boolean  @default(true)
+  naReason    String?
+  owner       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  scores      AssessmentScore[]
-}
+  scores   AssessmentScore[]
+  evidence EvidenceControl[]
 
-model EventLog {
-  id          String   @id @default(uuid())
-  action      String   
-  actor       String   
-  resource    String?
-  decision    String   
-  reason      String?
-  timestamp   DateTime @default(now())
-  metadata    Json?    
-}
-
-model EvidenceArtifact {
-  id          String   @id @default(uuid())
-  title       String
-  content     Json     
-  source      String   
-  collectedAt DateTime @default(now())
+  @@unique([framework, controlId])
 }
 
 model AssessmentScore {
-  id          String   @id @default(uuid())
-  controlId   String
-  status      String   
+  id            String   @id @default(uuid())
+  controlId     String
+  // 'Met' | 'Partially Met' | 'Not Met' | 'Needs Evidence' | 'Not Applicable'
+  status        String
   justification String?
-  evaluatedAt DateTime @default(now())
+  evaluatedAt   DateTime @default(now())
 
-  control     Control  @relation(fields: [controlId], references: [id])
+  control Control @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@index([controlId, evaluatedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Scans
+// ---------------------------------------------------------------------------
+
+model CheckRun {
+  id         String    @id @default(uuid())
+  // 'aws' | 'gcp' | 'azure'
+  provider   String
+  // 'running' | 'success' | 'partial' | 'error'
+  status     String    @default("running")
+  error      String?
+  isSample   Boolean   @default(false)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  results CheckResult[]
+
+  @@index([provider, startedAt])
+}
+
+model CheckResult {
+  id           String   @id @default(uuid())
+  runId        String
+  checkId      String
+  provider     String
+  resourceId   String
+  resourceName String?
+  // 'pass' | 'fail'
+  status       String
+  message      String
+  details      Json?
+  createdAt    DateTime @default(now())
+
+  run CheckRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([checkId])
 }
 
 model Finding {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String
-  severity    String   // 'High', 'Medium', 'Low'
-  resource    String?  // Target asset or ARN
-  remediation String?  @db.Text
+  // 'High' | 'Medium' | 'Low'
+  severity    String
+  resource    String?
+  remediation String?   @db.Text
   details     Json?
-  status      String   @default("Open") // 'Open', 'Resolved', 'Suppressed'
+  // 'Open' | 'Resolved' | 'Accepted'
+  status      String    @default("Open")
+  checkId     String?
+  provider    String?
+  isSample    Boolean   @default(false)
+  acceptedBy  String?
+  acceptReason String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([checkId, resource, status])
+}
+
+// ---------------------------------------------------------------------------
+// Evidence
+// Every non-sample artifact is appended to a SHA-256 hash chain (seq order) so
+// any later edit, deletion or reordering is detectable.
+// ---------------------------------------------------------------------------
+
+model EvidenceArtifact {
+  id          String    @id @default(uuid())
+  seq         Int       @unique @default(autoincrement())
+  title       String
+  description String?
+  // 'automated' | 'upload' | 'note'
+  kind        String    @default("automated")
+  source      String
+  content     Json?
+  fileName    String?
+  mimeType    String?
+  fileSize    Int?
+  fileData    Bytes?
+  sha256      String?
+  prevHash    String?
+  chainHash   String?
+  isSample    Boolean   @default(false)
+  collectedBy String?
+  collectedAt DateTime  @default(now())
+
+  controls EvidenceControl[]
+
+  @@index([collectedAt])
+}
+
+model EvidenceControl {
+  evidenceId String
+  controlId  String
+
+  evidence EvidenceArtifact @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  control  Control          @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@id([evidenceId, controlId])
+  @@index([controlId])
+}
+
+// ---------------------------------------------------------------------------
+// Activity log: who did what, when.
+// ---------------------------------------------------------------------------
+
+model EventLog {
+  id        String   @id @default(uuid())
+  action    String
+  actor     String
+  resource  String?
+  decision  String
+  reason    String?
+  timestamp DateTime @default(now())
+  metadata  Json?
+
+  @@index([timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Independent timestamps (RFC 3161) of the evidence chain head. Each token
+// proves every evidence record up to `seq` existed by `genTime`.
+// ---------------------------------------------------------------------------
+
+model ChainAnchor {
+  id        String   @id @default(uuid())
+  seq       Int
+  chainHash String
+  tsaUrl    String
+  token     Bytes
+  genTime   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([seq])
+}
+
+// ---------------------------------------------------------------------------
+// Cloud account connections made in the app (Cloud Accounts > Connect).
+// Keys are encrypted with CONTROLLAYER_SECRET_KEY; environment variables
+// still work as a fallback for server installs.
+// ---------------------------------------------------------------------------
+
+model ConnectorConfig {
+  // 'aws' | 'gcp' | 'azure'
+  provider    String   @id
+  // 'signin' (browser sign-in through the cloud's CLI) | 'keys'
+  method      String
+  // Non-secret settings: regions, project, subscription, account label.
+  settings    Json
+  // AES-256-GCM encrypted JSON with keys, when method = 'keys'.
+  secret      String?
+  connectedBy String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Workspace settings edited in the app (Settings). Values are JSON strings;
+// secret values (the assistant API key) are encrypted. Environment variables
+// are only used when a setting has not been saved here.
+// ---------------------------------------------------------------------------
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedBy String
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// People (employees and contractors) — not the same as app users. Used for
+// policy sign-off and to spot people who left but still have accounts.
+// ---------------------------------------------------------------------------
+
+model Person {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  title          String?
+  githubUsername String?
+  // 'manual' | 'csv' | 'gworkspace' | 'm365'
+  source         String    @default("manual")
+  startDate      DateTime?
+  // Set when the person leaves; they no longer need to sign policies.
+  endDate        DateTime?
+  // Secret for the personal sign-off link (stored hashed).
+  signTokenHash  String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  acknowledgments PolicyAcknowledgment[]
+}
+
+// ---------------------------------------------------------------------------
+// Policies. Drafts are edited freely; publishing creates an immutable version
+// that people sign. Each published version is also stored as evidence.
+// ---------------------------------------------------------------------------
+
+model Policy {
+  id                 String    @id @default(uuid())
+  // Template this policy started from, e.g. 'information-security'.
+  slug               String    @unique
+  title              String
+  summary            String    @default("")
+  draft              String    @db.Text
+  owner              String?
+  reviewIntervalDays Int       @default(365)
+  requiresSignoff    Boolean   @default(true)
+  // Control keys like "SOC2:CC2.2".
+  controls           Json
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  versions PolicyVersion[]
+}
+
+model PolicyVersion {
+  id          String   @id @default(uuid())
+  policyId    String
+  version     Int
+  content     String   @db.Text
+  sha256      String
+  publishedBy String
+  publishedAt DateTime @default(now())
+  evidenceId  String?
+
+  policy          Policy                 @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  acknowledgments PolicyAcknowledgment[]
+
+  @@unique([policyId, version])
+}
+
+model PolicyAcknowledgment {
+  id         String   @id @default(uuid())
+  versionId  String
+  personId   String
+  // Name as typed by the person when accepting.
+  signedName String
+  ip         String?
+  acceptedAt DateTime @default(now())
+
+  version PolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  person  Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, personId])
+}
+
+// ---------------------------------------------------------------------------
+// Trust Center: a public page about the company's security, with documents
+// that are public or shared on request (after accepting an NDA).
+// ---------------------------------------------------------------------------
+
+model TrustDocument {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  fileData    Bytes
+  sha256      String
+  // 'public' = anyone can download; 'request' = after an approved request
+  access      String   @default("request")
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+}
+
+model TrustRequest {
+  id          String    @id @default(uuid())
+  name        String
+  email       String
+  company     String
+  reason      String?
+  ndaAccepted Boolean   @default(false)
+  ip          String?
+  // 'pending' | 'approved' | 'denied'
+  status      String    @default("pending")
+  decidedBy   String?
+  decidedAt   DateTime?
+  // Secret for the access link (stored hashed), valid until expiresAt.
+  tokenHash   String?   @unique
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Devices: servers and laptops that report their security settings with the
+// ControlLayer agent script (on-premises or anywhere).
+// ---------------------------------------------------------------------------
+
+model Device {
+  id           String   @id @default(uuid())
+  // SHA-256 of the machine's own ID (machine-id / MachineGuid / hardware UUID).
+  machineHash  String   @unique
+  hostname     String
+  // 'linux' | 'windows' | 'macos'
+  os           String
+  osVersion    String
+  // 'server' | 'workstation'
+  role         String
+  // Email of the person who uses it (laptops), linked to People by email.
+  owner        String?
+  agentVersion String
+  ip           String?
+  report       Json
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@index([lastSeenAt])
+}
+
+// ---------------------------------------------------------------------------
+// Security questionnaires: customers' questionnaires answered from the answer
+// library (built-in answers generated from live data, plus your own).
+// ---------------------------------------------------------------------------
+
+model AnswerLibraryEntry {
+  id         String   @id @default(uuid())
+  question   String   @db.Text
+  answer     String   @db.Text
+  // Overrides a built-in answer when set (its key).
+  builtinKey String?  @unique
+  // Shown in the Trust Center FAQ.
+  isPublic   Boolean  @default(false)
+  usageCount Int      @default(0)
+  updatedBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Questionnaire {
+  id           String    @id @default(uuid())
+  name         String
+  customer     String?
+  dueDate      DateTime?
+  // 'in_progress' | 'completed'
+  status       String    @default("in_progress")
+  // Original uploaded file, so answers can be written back into it.
+  fileName     String?
+  fileData     Bytes?
+  sheetName    String?
+  headerRow    Int?
+  questionCol  Int?
+  answerCol    Int?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  items QuestionnaireItem[]
+}
+
+model QuestionnaireItem {
+  id              String  @id @default(uuid())
+  questionnaireId String
+  position        Int
+  // Row in the original spreadsheet (1-based), when imported from a file.
+  row             Int?
+  section         String?
+  question        String  @db.Text
+  answer          String  @db.Text @default("")
+  // 'suggested' | 'approved' | 'needs_input'
+  status          String  @default("needs_input")
+  confidence      Float   @default(0)
+  // Where the suggestion came from: { type: 'builtin' | 'library' | 'assistant', key?, id?, sources?[] }
+  source          Json?
+  approvedBy      String?
+
+  questionnaire Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+
+  @@index([questionnaireId, position])
+}
+
+// ---------------------------------------------------------------------------
+// Vendor risk management.
+// ---------------------------------------------------------------------------
+
+model Vendor {
+  id               String    @id @default(uuid())
+  name             String
+  website          String?
+  category         String    @default("Other")
+  description      String?
+  // Email or name of the internal owner.
+  owner            String?
+  // 'active' | 'offboarded'
+  status           String    @default("active")
+  // Data the vendor can access: customer_data, personal_data, health_data,
+  // payment_data, source_code, credentials, employee_data, internal_data.
+  dataAccess       Json      @default("[]")
+  businessCritical Boolean   @default(false)
+  usesAi           Boolean   @default(false)
+  // true / false / null (unknown): may the vendor train AI on your data?
+  aiTrainsOnData   Boolean?
+  // Processes customer personal data on your behalf (listed as a subprocessor).
+  subprocessor     Boolean   @default(false)
+  dataLocation     String?
+  // 'critical' | 'high' | 'medium' | 'low' (computed unless overridden)
+  tier             String    @default("low")
+  tierOverride     String?
+  dpaSigned        Boolean   @default(false)
+  baaSigned        Boolean   @default(false)
+  contractEnd      DateTime?
+  trustUrl         String?
+  notes            String?   @db.Text
+  lastReviewedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  documents      VendorDocument[]
+  reviews        VendorReview[]
+  questionnaires VendorQuestionnaire[]
+}
+
+model VendorDocument {
+  id         String    @id @default(uuid())
+  vendorId   String
+  // 'soc2' | 'iso27001' | 'pentest' | 'questionnaire' | 'contract' | 'dpa' | 'baa' | 'other'
+  kind       String
+  title      String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  fileData   Bytes
+  validUntil DateTime?
+  uploadedBy String
+  createdAt  DateTime  @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorReview {
+  id           String   @id @default(uuid())
+  vendorId     String
+  reviewer     String
+  // 'approved' | 'approved_with_conditions' | 'rejected'
+  outcome      String
+  // 'low' | 'medium' | 'high'
+  residualRisk String
+  checklist    Json
+  notes        String?  @db.Text
+  evidenceId   String?
+  reviewedAt   DateTime @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorQuestionnaire {
+  id          String    @id @default(uuid())
+  vendorId    String
+  tokenHash   String    @unique
+  sentTo      String
+  // 'sent' | 'completed' | 'revoked'
+  status      String    @default("sent")
+  answers     Json?
+  respondent  String?
+  score       Int?
+  sentBy      String
+  sentAt      DateTime  @default(now())
+  completedAt DateTime?
+  expiresAt   DateTime
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Accounts seen in each connected system at the latest scan, and access
+// reviews built from them.
+// ---------------------------------------------------------------------------
+
+model SystemAccount {
+  id           String    @id @default(uuid())
+  provider     String
+  // Stable id within the provider (email, login, ARN, device/account...).
+  accountId    String
+  name         String
+  email        String?
+  // Where the account lives, e.g. a server's hostname for local accounts.
+  system       String
+  isAdmin      Boolean   @default(false)
+  active       Boolean   @default(true)
+  lastActivity DateTime?
+  detail       String?
+  isSample     Boolean   @default(false)
+  seenAt       DateTime  @default(now())
+
+  @@unique([provider, accountId, isSample])
+  @@index([provider, isSample])
+}
+
+model AccessReview {
+  id          String    @id @default(uuid())
+  name        String
+  // 'in_progress' | 'completed'
+  status      String    @default("in_progress")
+  dueDate     DateTime?
+  systems     Json
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  completedBy String?
+  completedAt DateTime?
+  evidenceId  String?
+
+  items AccessReviewItem[]
+}
+
+model AccessReviewItem {
+  id           String    @id @default(uuid())
+  reviewId     String
+  provider     String
+  system       String
+  accountId    String
+  name         String
+  email        String?
+  isAdmin      Boolean   @default(false)
+  lastActivity DateTime?
+  detail       String?
+  // left | unknown | inactive | never_used | admin
+  flags        Json      @default("[]")
+  // Who the account belongs to (People), when matched.
+  personName   String?
+  // 'pending' | 'keep' | 'remove' | 'change'
+  decision     String    @default("pending")
+  note         String?
+  decidedBy    String?
+  decidedAt    DateTime?
+
+  review AccessReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+// ---------------------------------------------------------------------------
+// Risk register.
+// ---------------------------------------------------------------------------
+
+model Risk {
+  id                 String    @id @default(uuid())
+  title              String
+  description        String?   @db.Text
+  category           String    @default("Security")
+  owner              String?
+  // 1-5 each; score = likelihood x impact
+  likelihood         Int       @default(3)
+  impact             Int       @default(3)
+  // 'mitigate' | 'accept' | 'transfer' | 'avoid'
+  treatment          String    @default("mitigate")
+  treatmentPlan      String?   @db.Text
+  residualLikelihood Int?
+  residualImpact     Int?
+  // 'open' | 'treating' | 'accepted' | 'closed'
+  status             String    @default("open")
+  // Control keys like "SOC2:CC6.1" that reduce this risk.
+  controls           Json      @default("[]")
+  // Check ids whose failures make this risk more likely.
+  checks             Json      @default("[]")
+  // Library key it was created from, if any.
+  libraryKey         String?
+  acceptedBy         String?
+  acceptedReason     String?   @db.Text
+  acceptedUntil      DateTime?
+  dueDate            DateTime?
+  reviewedAt         DateTime?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model RiskAssessment {
+  id          String   @id @default(uuid())
+  completedBy String
+  completedAt DateTime @default(now())
+  summary     Json
+  evidenceId  String?
 }

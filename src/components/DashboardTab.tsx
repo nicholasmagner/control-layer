@@ -1,289 +1,251 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Shield, Target, AlertTriangle, AlertCircle, X } from "lucide-react";
+import { Building, CheckCircle2, ChevronRight, Circle, ClipboardList, Cloud, FileText, FlaskConical, MonitorSmartphone, ShieldAlert, UserCheck } from 'lucide-react';
+import { useState } from 'react';
+import type { TabProps } from './AppShell';
+import { api, Button, Card, cx, ErrorText, formatDate, PageHeader, PROVIDER_LABEL, SeverityBadge, StatusBadge } from './ui';
 
-export default function DashboardTab({ data, selectedFramework, onNavigate }: { data: any, selectedFramework?: string, onNavigate?: (tab: string) => void }) {
-  const { scores = [], logs = [], findings = [] } = data;
-  const [activePopup, setActivePopup] = useState<string | null>(null);
+const STATUS_ORDER = ['Met', 'Partially Met', 'Not Met', 'Needs Evidence', 'Not Applicable'] as const;
+const STATUS_COLOR: Record<string, string> = {
+  'Met': 'bg-emerald-500', 'Partially Met': 'bg-amber-500', 'Not Met': 'bg-red-500', 'Needs Evidence': 'bg-slate-500', 'Not Applicable': 'bg-slate-700',
+};
 
-  const togglePopup = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setActivePopup(prev => prev === id ? null : id);
-  };
+function ScoreRing({ score }: { score: number }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+  return (
+    <svg viewBox="0 0 120 120" className="h-36 w-36 -rotate-90">
+      <circle cx="60" cy="60" r={r} fill="none" stroke="#1e293b" strokeWidth="10" />
+      <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={c - (score / 100) * c} className="transition-all duration-700" />
+      <text x="60" y="60" textAnchor="middle" dominantBaseline="central" className="rotate-90 fill-slate-50 text-[26px] font-bold" style={{ transformOrigin: '60px 60px' }}>
+        {score}%
+      </text>
+    </svg>
+  );
+}
 
-  const closePopup = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActivePopup(null);
-  };
+export default function DashboardTab({ data, frameworkId, navigate, refresh, openUpload, setFramework }: TabProps) {
+  const fw = data.frameworks.find(f => f.id === frameworkId)!;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const canEdit = data.user.role !== 'auditor';
+  const open = data.findings.filter(f => f.status === 'Open');
+  const scanned = data.connectors.some(c => c.lastRun && c.lastRun.status !== 'error');
+  const applicable = fw.controls.filter(c => c.status !== 'Not Applicable').length;
 
-  let displayScores = scores;
-  if (selectedFramework && selectedFramework !== "All Frameworks") {
-    displayScores = scores.filter((s: any) => s.control?.framework === selectedFramework);
+  const attention = [...fw.controls]
+    .filter(c => c.status === 'Not Met' || c.status === 'Partially Met' || c.status === 'Needs Evidence' || c.status === 'Not assessed')
+    .sort((a, b) => ['Not Met', 'Partially Met', 'Needs Evidence', 'Not assessed'].indexOf(a.status) - ['Not Met', 'Partially Met', 'Needs Evidence', 'Not assessed'].indexOf(b.status))
+    .slice(0, 6);
+
+  const steps = [
+    { done: scanned, label: 'Connect a cloud account (or load sample data)', action: () => navigate('connectors') },
+    { done: data.evidence.some(e => e.kind === 'upload' || e.kind === 'note'), label: 'Upload policies and other evidence', action: () => openUpload() },
+    { done: data.findings.some(f => f.status !== 'Open') || (scanned && open.length === 0), label: 'Fix or accept your first findings', action: () => navigate('findings') },
+    { done: data.users.some(u => u.role === 'auditor'), label: 'Invite your auditor (read-only access)', action: () => navigate('settings'), hidden: data.user.role !== 'admin' },
+    { done: data.events.some(e => e.action === 'Audit package exported'), label: 'Export an audit evidence package', action: () => navigate('evidence') },
+  ].filter(s => !s.hidden);
+  const allDone = steps.every(s => s.done);
+
+  async function loadSample() {
+    setLoading(true);
+    setError('');
+    try {
+      await api('/api/sample-data', { method: 'POST' });
+      refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const latestScores = new Map();
-  displayScores.forEach((s: any) => {
-    if (!latestScores.has(s.controlId)) latestScores.set(s.controlId, s);
-  });
-  
-  const uniqueScores = Array.from(latestScores.values());
-  const metControls = uniqueScores.filter((s: any) => s.status === 'Met');
-  const partialControls = uniqueScores.filter((s: any) => s.status === 'Partially Met');
-  const failedControls = uniqueScores.filter((s: any) => s.status === 'Not Met');
-  const openFindings = findings.filter((f: any) => f.status === 'Open');
-  
-  const metCount = metControls.length;
-  const partialCount = partialControls.length;
-  const notMetCount = failedControls.length;
-  const totalCount = uniqueScores.length || 1;
-  const compliancePercentage = Math.round((metCount / totalCount) * 100);
-
-  const determineRingColor = (pct: number) => {
-    if (pct >= 90) return "text-emerald-500";
-    if (pct >= 70) return "text-sky-500";
-    if (pct >= 50) return "text-amber-500";
-    return "text-red-500";
-  };
-  
-  const ringColor = determineRingColor(compliancePercentage);
-
   return (
-    <div 
-      className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out"
-      onClick={() => setActivePopup(null)}
-    >
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Compliance Posture</h2>
-        <p className="text-slate-400 mt-2">
-          Real-time assessment of your environment across {selectedFramework === "All Frameworks" ? "all frameworks" : selectedFramework}.
-        </p>
-      </header>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-1 lg:col-span-1 border border-slate-800 bg-slate-900/50 backdrop-blur-xl rounded-2xl p-8 flex flex-col items-center justify-center relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-          <h3 className="text-lg font-semibold text-slate-300 mb-6 w-full text-center">Score</h3>
-          
-          <div className="relative flex items-center justify-center">
-            <svg className="w-48 h-48 transform -rotate-90">
-              <circle cx="96" cy="96" r="88" className="stroke-slate-800" strokeWidth="12" fill="none" />
-              <circle 
-                cx="96" 
-                cy="96" 
-                r="88" 
-                className={`stroke-current ${ringColor} transition-all duration-1000 ease-out`} 
-                strokeWidth="12" 
-                fill="none" 
-                strokeDasharray="553" 
-                strokeDashoffset={553 - (553 * compliancePercentage) / 100} 
-                strokeLinecap="round" 
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-5xl font-extrabold tracking-tighter">{compliancePercentage}%</span>
-              <span className="text-sm font-medium text-slate-400 mt-1 uppercase tracking-widest">Compliant</span>
-            </div>
+    <div className="space-y-8">
+      <PageHeader title={`${fw.name} readiness`} subtitle={fw.description} />
+
+      {!scanned && canEdit && (
+        <Card className="flex flex-col gap-4 border-sky-500/30 bg-sky-500/5 p-6 md:flex-row md:items-center">
+          <FlaskConical className="shrink-0 text-sky-400" size={32} />
+          <div className="flex-1">
+            <p className="font-semibold text-slate-100">Welcome! Start by connecting a cloud account.</p>
+            <p className="mt-1 text-sm text-slate-400">Or load a sample company (AWS, Google Cloud and Azure) to see how scans, findings and audit evidence work. Sample data is replaced by your first real scan.</p>
+            <ErrorText>{error}</ErrorText>
           </div>
-        </div>
-        
-        <div className="col-span-1 lg:col-span-2 grid grid-cols-2 gap-6 relative z-20">
-            <div 
-              onClick={(e) => togglePopup(e, 'met')}
-              className={`bg-slate-900/50 hover:bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${activePopup === 'met' ? 'z-50 ring-1 ring-emerald-500 border-transparent shadow-[0_0_20px_rgba(16,185,129,0.15)]' : 'z-10'}`}
-             >
-              <div className="flex items-center justify-between pointer-events-none">
-                <Shield className="text-emerald-500" size={24} />
-                <span className="text-2xl font-bold">{metCount}</span>
-              </div>
-              <h3 className="text-sm font-medium text-slate-300 mt-4 uppercase tracking-wider pointer-events-none">Controls Met</h3>
-              
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className={`absolute top-[80%] -left-4 mt-2 w-72 p-4 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl transition-all duration-300 z-50 cursor-default ${activePopup === 'met' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Compliant Controls</h4>
-                  <button 
-                    onClick={closePopup}
-                    className="p-1 hover:bg-slate-800 rounded-md transition-colors text-slate-500 hover:text-slate-300"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                  {metControls.length > 0 ? metControls.slice(0, 5).map((s: any) => (
-                    <div 
-                      key={s.id} 
-                      onClick={(e) => { e.stopPropagation(); onNavigate?.('controls'); }}
-                      className="text-sm leading-tight flex flex-col gap-1 cursor-pointer hover:bg-slate-800/50 p-2 rounded-lg -mx-2 transition-colors"
-                    >
-                      <span className="font-semibold text-emerald-400">{s.control?.controlId || s.controlId}</span>
-                      <span className="text-slate-400 text-xs line-clamp-1">{s.control?.name || ''}</span>
-                    </div>
-                  )) : <p className="text-xs text-slate-500">None</p>}
-                  {metControls.length > 5 && <p className="text-xs text-slate-500 italic mt-2 border-t border-slate-800 pt-2">+{metControls.length - 5} more mapped...</p>}
-                </div>
-              </div>
-            </div>
-            
-            <div 
-              onClick={(e) => togglePopup(e, 'partial')}
-              className={`bg-slate-900/50 hover:bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${activePopup === 'partial' ? 'z-50 ring-1 ring-amber-500 border-transparent shadow-[0_0_20px_rgba(245,158,11,0.15)]' : 'z-10'}`}
-             >
-              <div className="flex items-center justify-between pointer-events-none">
-                <Target className="text-amber-500" size={24} />
-                <span className="text-2xl font-bold">{partialCount}</span>
-              </div>
-              <h3 className="text-sm font-medium text-slate-300 mt-4 uppercase tracking-wider pointer-events-none">Partially Met</h3>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => navigate('connectors')}><Cloud size={16} /> Connect cloud</Button>
+            <Button onClick={loadSample} disabled={loading}>{loading ? 'Loading…' : 'Load sample data'}</Button>
+          </div>
+        </Card>
+      )}
 
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className={`absolute top-[80%] -right-4 mt-2 w-72 p-4 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl transition-all duration-300 z-50 cursor-default ${activePopup === 'partial' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Partial Controls</h4>
-                  <button 
-                    onClick={closePopup}
-                    className="p-1 hover:bg-slate-800 rounded-md transition-colors text-slate-500 hover:text-slate-300"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                  {partialControls.length > 0 ? partialControls.slice(0, 5).map((s: any) => (
-                    <div 
-                      key={s.id} 
-                      onClick={(e) => { e.stopPropagation(); onNavigate?.('controls'); }}
-                      className="text-sm leading-tight flex flex-col gap-1 cursor-pointer hover:bg-slate-800/50 p-2 rounded-lg -mx-2 transition-colors"
-                    >
-                      <span className="font-semibold text-amber-400">{s.control?.controlId || s.controlId}</span>
-                      <span className="text-slate-400 text-xs line-clamp-1">{s.control?.name || ''}</span>
-                    </div>
-                  )) : <p className="text-xs text-slate-500">None</p>}
-                  {partialControls.length > 5 && <p className="text-xs text-slate-500 italic mt-2 border-t border-slate-800 pt-2">+{partialControls.length - 5} more mapped...</p>}
-                </div>
-              </div>
-            </div>
+      <ProgramHealth data={data} navigate={navigate} />
 
-            <div 
-              onClick={(e) => togglePopup(e, 'failed')}
-              className={`bg-slate-900/50 hover:bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${activePopup === 'failed' ? 'z-50 ring-1 ring-red-500 border-transparent shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'z-10'}`}
-             >
-              <div className="flex items-center justify-between pointer-events-none">
-                <AlertCircle className="text-red-500" size={24} />
-                <span className="text-2xl font-bold">{notMetCount}</span>
-              </div>
-              <h3 className="text-sm font-medium text-slate-300 mt-4 uppercase tracking-wider pointer-events-none">Controls Failed</h3>
+      {data.settings.frameworks.length > 1 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-100">All your frameworks</h3>
+            <span className="text-xs text-slate-500">One piece of evidence counts everywhere it applies.</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {data.frameworks.filter(f => data.settings.frameworks.includes(f.id)).map(f => (
+              <button key={f.id} onClick={() => setFramework(f.id)}
+                className={cx('rounded-lg border p-3 text-left transition-colors hover:border-sky-500/50', f.id === frameworkId ? 'border-sky-500/60 bg-sky-500/5' : 'border-slate-800 bg-slate-950/40')}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-slate-200">{f.shortName}</span>
+                  <span className={cx('text-lg font-bold', f.score >= 80 ? 'text-emerald-400' : f.score >= 50 ? 'text-amber-400' : 'text-red-400')}>{f.score}%</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div className={cx('h-full', f.score >= 80 ? 'bg-emerald-500' : f.score >= 50 ? 'bg-amber-500' : 'bg-red-500')} style={{ width: `${f.score}%` }} />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">{f.counts['Met'] ?? 0} of {f.controls.length - (f.counts['Not Applicable'] ?? 0)} controls met</p>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
 
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className={`absolute top-[80%] -left-4 mt-2 w-72 p-4 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl transition-all duration-300 z-50 cursor-default ${activePopup === 'failed' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Failed Controls</h4>
-                  <button 
-                    onClick={closePopup}
-                    className="p-1 hover:bg-slate-800 rounded-md transition-colors text-slate-500 hover:text-slate-300"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                  {failedControls.length > 0 ? failedControls.slice(0, 5).map((s: any) => (
-                    <div 
-                      key={s.id} 
-                      onClick={(e) => { e.stopPropagation(); onNavigate?.('controls'); }}
-                      className="text-sm leading-tight flex flex-col gap-1 cursor-pointer hover:bg-slate-800/50 p-2 rounded-lg -mx-2 transition-colors"
-                    >
-                      <span className="font-semibold text-red-500">{s.control?.controlId || s.controlId}</span>
-                      <span className="text-slate-400 text-xs line-clamp-1">{s.control?.name || ''}</span>
-                    </div>
-                  )) : <p className="text-xs text-slate-500">None</p>}
-                  {failedControls.length > 5 && <p className="text-xs text-slate-500 italic mt-2 border-t border-slate-800 pt-2">+{failedControls.length - 5} more mapped...</p>}
-                </div>
-              </div>
-            </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="flex flex-col items-center gap-4 p-6 lg:col-span-1">
+          <ScoreRing score={fw.score} />
+          <p className="text-center text-sm text-slate-400">
+            {fw.counts['Met'] ?? 0} of {applicable} applicable controls met
+          </p>
+          <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            {STATUS_ORDER.map(s => (fw.counts[s] ? <div key={s} className={STATUS_COLOR[s]} style={{ width: `${(fw.counts[s] / fw.controls.length) * 100}%` }} /> : null))}
+          </div>
+          <div className="grid w-full grid-cols-2 gap-2 text-xs">
+            {STATUS_ORDER.map(s => (
+              <button key={s} onClick={() => navigate('controls')} className="flex items-center justify-between rounded-lg bg-slate-950/60 px-3 py-2 text-left hover:bg-slate-800">
+                <span className="flex items-center gap-2 text-slate-400"><span className={cx('h-2 w-2 rounded-full', STATUS_COLOR[s])} />{s}</span>
+                <span className="font-semibold text-slate-200">{fw.counts[s] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
 
-            <div 
-              onClick={(e) => togglePopup(e, 'findings')}
-              className={`bg-slate-900/50 hover:bg-slate-900/70 backdrop-blur-xl border border-slate-800 rounded-2xl p-6 flex flex-col justify-between relative transition-all duration-200 cursor-pointer ${activePopup === 'findings' ? 'z-50 ring-1 ring-rose-500 border-transparent shadow-[0_0_20px_rgba(244,63,94,0.15)]' : 'z-10'}`}
-             >
-              <div className="flex items-center justify-between pointer-events-none">
-                <AlertTriangle className="text-amber-500" size={24} />
-                <span className="text-2xl font-bold">{openFindings.length}</span>
-              </div>
-              <h3 className="text-sm font-medium text-slate-300 mt-4 uppercase tracking-wider pointer-events-none">Active Findings</h3>
-
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className={`absolute top-[80%] -right-4 mt-2 w-72 p-4 bg-slate-900 border border-slate-700/50 rounded-xl shadow-2xl transition-all duration-300 z-50 cursor-default ${activePopup === 'findings' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Open Findings</h4>
-                  <button 
-                    onClick={closePopup}
-                    className="p-1 hover:bg-slate-800 rounded-md transition-colors text-slate-500 hover:text-slate-300"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                  {openFindings.length > 0 ? openFindings.slice(0, 5).map((f: any) => (
-                    <div 
-                      key={f.id} 
-                      onClick={(e) => { e.stopPropagation(); onNavigate?.('findings'); }}
-                      className="text-sm border-l border-amber-500/50 pl-3 cursor-pointer hover:bg-slate-800/50 p-2 rounded-lg transition-colors my-1"
-                    >
-                      <div className="font-semibold text-slate-200 truncate">{f.title}</div>
-                      <div className="text-xs text-slate-500 mt-1 flex items-center justify-between">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          f.severity === 'High' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'
-                        }`}>
-                          {f.severity}
-                        </span>
-                        <span className="truncate ml-2">{f.resource}</span>
-                      </div>
-                    </div>
-                  )) : <p className="text-xs text-slate-500">None</p>}
-                  {openFindings.length > 5 && <p className="text-xs text-slate-500 italic mt-2 border-t border-slate-800 pt-2">+{openFindings.length - 5} more issues...</p>}
-                </div>
-              </div>
-            </div>
-        </div>
-      </div>
-      
-      <div className="border border-slate-800 bg-slate-900/50 backdrop-blur-xl rounded-2xl overflow-hidden">
-        <div className="p-6 border-b border-slate-800">
-          <h3 className="text-lg font-semibold">Recent Event Logs</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-400 uppercase bg-slate-900 font-semibold tracking-wider">
-              <tr>
-                <th className="px-6 py-4">Timestamp</th>
-                <th className="px-6 py-4">Action</th>
-                <th className="px-6 py-4">Actor</th>
-                <th className="px-6 py-4">Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.slice(0, 5).map((log: any) => (
-                <tr key={log.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors">
-                  <td className="px-6 py-4 text-slate-300 font-mono text-xs">{new Date(log.timestamp).toLocaleString()}</td>
-                  <td className="px-6 py-4 font-medium">{log.action}</td>
-                  <td className="px-6 py-4 text-slate-400">{log.actor}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${log.decision === 'Allow' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                      {log.decision}
+        <Card className="p-6 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-100">Needs attention</h3>
+            <button className="text-xs text-sky-400 hover:text-sky-300" onClick={() => navigate('controls')}>All controls →</button>
+          </div>
+          {attention.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">Every applicable control is met. Keep evidence current and export your package when the audit starts.</p>
+          ) : (
+            <ul className="divide-y divide-slate-800">
+              {attention.map(c => (
+                <li key={c.controlId}>
+                  <button onClick={() => navigate('controls', { controlId: c.controlId })} className="flex w-full items-center gap-4 py-3 text-left hover:bg-slate-800/30">
+                    <span className="w-24 shrink-0 font-mono text-xs text-sky-400">{c.controlId}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-slate-200">{c.title}</span>
+                      <span className="block truncate text-xs text-slate-500">{c.justification}</span>
                     </span>
-                  </td>
-                </tr>
+                    <StatusBadge status={c.status} />
+                    <ChevronRight size={16} className="text-slate-600" />
+                  </button>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="p-6 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-100">Open findings <span className="ml-1 text-sm font-normal text-slate-500">({open.length})</span></h3>
+            <button className="text-xs text-sky-400 hover:text-sky-300" onClick={() => navigate('findings')}>All findings →</button>
+          </div>
+          <div className="mb-4 grid grid-cols-3 gap-3">
+            {(['High', 'Medium', 'Low'] as const).map(s => (
+              <div key={s} className="rounded-lg bg-slate-950/60 p-3">
+                <p className="text-2xl font-bold text-slate-100">{open.filter(f => f.severity === s).length}</p>
+                <p className="text-xs text-slate-500">{s} severity</p>
+              </div>
+            ))}
+          </div>
+          <ul className="divide-y divide-slate-800">
+            {open.sort((a, b) => ['High', 'Medium', 'Low'].indexOf(a.severity) - ['High', 'Medium', 'Low'].indexOf(b.severity)).slice(0, 5).map(f => (
+              <li key={f.id} className="flex items-center gap-3 py-2.5">
+                <SeverityBadge severity={f.severity} />
+                <span className="min-w-0 flex-1 truncate text-sm text-slate-300">{f.description}</span>
+                <span className="text-xs text-slate-500">{PROVIDER_LABEL[f.provider ?? ''] ?? ''}</span>
+              </li>
+            ))}
+            {open.length === 0 && <li className="py-6 text-center text-sm text-slate-500">No open findings.</li>}
+          </ul>
+        </Card>
+
+        <Card className="p-6">
+          <h3 className="mb-4 font-semibold text-slate-100">{allDone ? 'Audit readiness' : 'Getting started'}</h3>
+          <ul className="space-y-2">
+            {steps.map(s => (
+              <li key={s.label}>
+                <button onClick={s.action} className="flex w-full items-start gap-3 rounded-lg p-2 text-left text-sm hover:bg-slate-800/50">
+                  {s.done ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-500" /> : <Circle size={18} className="mt-0.5 shrink-0 text-slate-600" />}
+                  <span className={s.done ? 'text-slate-500 line-through' : 'text-slate-200'}>{s.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <h4 className="mb-2 mt-6 text-xs font-bold uppercase tracking-wider text-slate-500">Recent activity</h4>
+          <ul className="space-y-2">
+            {data.events.slice(0, 4).map(e => (
+              <li key={e.id} className="text-xs">
+                <span className="text-slate-300">{e.action}</span>
+                <span className="text-slate-600"> · {formatDate(e.timestamp, true)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
     </div>
+  );
+}
+
+function ProgramHealth({ data, navigate }: Pick<TabProps, 'data' | 'navigate'>) {
+  const [now] = useState(() => Date.now());
+  const policiesOverdue = data.policies.policies.filter(p => p.overdue).length;
+  const unpublished = data.policies.policies.filter(p => !p.latest).length;
+  const signoff = data.policies.people.filter(p => p.active && p.pending.length).length;
+  const vendorIssues = data.vendors.vendors.filter(v => v.status === 'active' && v.signals.some(s => s.level === 'high')).length;
+  const accessDue = data.access.nextDue ? new Date(data.access.nextDue).getTime() : null;
+  const riskAction = data.risks.risks.filter(r => r.signals.some(s => s.id === 'no_plan' || s.id === 'acceptance_expired')).length;
+  const riskDue = data.risks.nextAssessmentDue ? new Date(data.risks.nextAssessmentDue).getTime() : null;
+  const qOpen = data.questionnaires.filter(q => q.status !== 'completed');
+  const devices = data.devices.filter(d => d.failing.length && !d.isSample).length;
+  const items = [
+    { icon: FileText, label: 'Policies', tab: 'policies' as const, bad: policiesOverdue + unpublished > 0 || signoff > 0,
+      text: !data.policies.policies.length ? 'Add policy templates' : policiesOverdue ? `${policiesOverdue} overdue for review` : unpublished ? `${unpublished} not published` : signoff ? `${signoff} people still to sign` : 'Published and signed' },
+    { icon: ShieldAlert, label: 'Risks', tab: 'risks' as const, bad: !data.risks.risks.length || riskAction > 0 || (riskDue !== null && riskDue < now) || !data.risks.lastAssessment,
+      text: !data.risks.risks.length ? 'Start your risk register' : riskAction ? `${riskAction} need a plan or decision` : !data.risks.lastAssessment ? 'Complete your first risk assessment' : riskDue && riskDue < now ? 'Yearly assessment overdue' : `${data.risks.risks.filter(r => r.status !== 'closed').length} risks tracked` },
+    { icon: UserCheck, label: 'Access reviews', tab: 'access' as const, bad: accessDue === null || accessDue < now,
+      text: accessDue === null ? 'No review completed yet' : accessDue < now ? 'Quarterly review overdue' : `Next due ${formatDate(data.access.nextDue)}` },
+    { icon: Building, label: 'Vendors', tab: 'vendors' as const, bad: !data.vendors.vendors.length || vendorIssues > 0,
+      text: !data.vendors.vendors.length ? 'List the vendors you use' : vendorIssues ? `${vendorIssues} need attention` : `${data.vendors.vendors.filter(v => v.status === 'active').length} vendors in good shape` },
+    { icon: ClipboardList, label: 'Questionnaires', tab: 'questionnaires' as const, bad: qOpen.some(q => q.dueDate && new Date(q.dueDate).getTime() < now),
+      text: qOpen.length ? `${qOpen.length} in progress` : 'Answer customer questionnaires in minutes' },
+    { icon: MonitorSmartphone, label: 'Devices', tab: 'devices' as const, bad: devices > 0,
+      text: data.devices.filter(d => !d.isSample).length ? (devices ? `${devices} with issues` : 'All devices pass') : 'Add servers and laptops' },
+  ];
+  return (
+    <Card className="p-6">
+      <h3 className="mb-4 font-semibold text-slate-100">Program health</h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map(i => (
+          <button key={i.label} onClick={() => navigate(i.tab)} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-left hover:border-slate-700">
+            <i.icon size={18} className={i.bad ? 'text-amber-400' : 'text-emerald-400'} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-slate-200">{i.label}</span>
+              <span className={cx('block truncate text-xs', i.bad ? 'text-amber-300' : 'text-slate-500')}>{i.text}</span>
+            </span>
+            <ChevronRight size={15} className="text-slate-600" />
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }

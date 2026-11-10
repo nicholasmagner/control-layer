@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: controllayer
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: controllayer
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U controllayer"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://controllayer:changeme@localhost:5432/controllayer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Migrations apply cleanly and the catalog loads
+        run: npm run db:migrate && npm run db:sample
+      - run: npm run build

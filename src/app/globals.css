@@ -23,3 +23,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), sans-serif;
 }
+
+/* Rendered policy documents */
+.policy-doc { color: #cbd5e1; font-size: 0.9rem; line-height: 1.65; }
+.policy-doc h1 { font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin: 0 0 1rem; }
+.policy-doc h2 { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin: 1.6rem 0 0.5rem; }
+.policy-doc h3, .policy-doc h4 { font-weight: 600; color: #e2e8f0; margin: 1.2rem 0 0.4rem; }
+.policy-doc p { margin: 0.6rem 0; }
+.policy-doc ul { list-style: disc; padding-left: 1.4rem; margin: 0.6rem 0; }
+.policy-doc ol { list-style: decimal; padding-left: 1.4rem; margin: 0.6rem 0; }
+.policy-doc li { margin: 0.25rem 0; }
+.policy-doc strong { color: #f1f5f9; }
+.policy-doc code { background: #1e293b; padding: 0 0.3rem; border-radius: 4px; font-size: 0.85em; }
+.policy-doc table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.85rem; }
+.policy-doc th, .policy-doc td { border: 1px solid #334155; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+.policy-doc th { background: #1e293b; color: #e2e8f0; }

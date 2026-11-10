@@ -1,87 +1,167 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Cloud, Server, Database, Plug, RefreshCw } from "lucide-react";
+import { Building2, CheckCircle2, Cloud, FlaskConical, GitBranch, Play, Plug, Users, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import type { TabProps } from './AppShell';
+import ConnectModal from './ConnectModal';
+import { api, Button, Card, cx, ErrorText, formatDate, PageHeader } from './ui';
 
-export default function ConnectorsTab() {
-  const [isSyncingAws, setIsSyncingAws] = useState(false);
-  const [awsStatus, setAwsStatus] = useState("Disconnected");
+interface ScanSummary { ok: boolean; error?: string; checksEvaluated: number; passed: number; failed: number; newFindings: number; resolvedFindings: number; warnings: string[] }
 
-  const connectors = [
-    { id: 'aws', name: 'AWS CloudTrail', status: awsStatus, type: 'cloud', icon: Cloud },
-    { id: 'azure', name: 'Azure Activity Logs', status: 'Disconnected', type: 'cloud', icon: Cloud },
-    { id: 'onprem', name: 'Active Directory (On-Prem)', status: 'Connected', type: 'server', icon: Server },
-    { id: 'db', name: 'PostgreSQL Telemetry', status: 'Connected', type: 'db', icon: Database },
-  ];
+const METHOD_LABEL: Record<string, string> = { signin: 'Browser sign-in', keys: 'Read-only key', env: 'Server settings', agent: 'Agent script' };
 
-  const handleConnect = async (id: string) => {
-    if (id === 'aws') {
-      setIsSyncingAws(true);
-      setAwsStatus("Syncing...");
-      try {
-        const res = await fetch('/api/connectors/aws/sync', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          setAwsStatus("Connected");
-        } else {
-          setAwsStatus("Error");
-          alert(data.error || "Failed to sync with AWS.");
-        }
-      } catch (err) {
-        setAwsStatus("Error");
-        alert("Failed to connect to backend sync service.");
-      } finally {
-        setIsSyncingAws(false);
-      }
+const GROUPS = [
+  { kind: 'cloud', title: 'Cloud', icon: Cloud, text: 'Where your product runs.' },
+  { kind: 'identity', title: 'Identity and email', icon: Users, text: 'Company accounts: MFA, unused accounts, admins, and access for people who left.' },
+  { kind: 'code', title: 'Code', icon: GitBranch, text: 'Code review, two-factor sign-in and security scanning for your source code.' },
+  { kind: 'onprem', title: 'On-premises', icon: Building2, text: 'Your own servers, laptops and Windows domain, wherever they run. ControlLayer must be able to reach the domain controller; devices report to ControlLayer.' },
+] as const;
+
+export default function ConnectorsTab({ data, refresh, navigate }: TabProps) {
+  const canEdit = data.user.role !== 'auditor';
+  const isAdmin = data.user.role === 'admin';
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [running, setRunning] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, ScanSummary>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sampleBusy, setSampleBusy] = useState(false);
+
+  async function scan(provider: string) {
+    setRunning(provider);
+    setErrors(e => ({ ...e, [provider]: '' }));
+    try {
+      const res = await fetch('/api/scans', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) });
+      const body = await res.json();
+      if (body.ok) setResults(r => ({ ...r, [provider]: body }));
+      else setErrors(e => ({ ...e, [provider]: body.error ?? 'Scan failed.' }));
+      refresh();
+    } catch (err) {
+      setErrors(e => ({ ...e, [provider]: (err as Error).message }));
+    } finally {
+      setRunning(null);
     }
-  };
+  }
+
+  async function disconnect(provider: string, name: string) {
+    if (!confirm(`Disconnect ${name}? Past scans and evidence are kept.`)) return;
+    await api(`/api/connectors/${provider}`, { method: 'DELETE' }).catch(err => setErrors(e => ({ ...e, [provider]: (err as Error).message })));
+    refresh();
+  }
+
+  async function sample(method: 'POST' | 'DELETE') {
+    setSampleBusy(true);
+    try { await api('/api/sample-data', { method }); refresh(); } finally { setSampleBusy(false); }
+  }
+
+  const active = data.connectors.find(c => c.provider === connecting);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <header>
-        <h2 className="text-3xl font-bold tracking-tight">Integration Connectors</h2>
-        <p className="text-slate-400 mt-2">Manage optional cloud and on-premise data sources.</p>
-      </header>
+    <div className="space-y-8">
+      <PageHeader
+        title="Integrations"
+        subtitle={<>Connect each service once. Scans are <strong className="text-slate-300">read-only</strong>: ControlLayer never changes anything. {data.features.scanIntervalHours ? `Automatic scans run every ${data.features.scanIntervalHours} hour(s).` : ''}</>}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {connectors.map(c => {
-          const Icon = c.icon;
-          const isConnected = c.status === 'Connected';
-          
+      {GROUPS.map(g => (
+      <section key={g.kind} className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">{g.title}</h3>
+          <p className="text-sm text-slate-500">{g.text}</p>
+        </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {data.connectors.filter(c => c.kind === g.kind).map(c => {
+          const Icon = g.icon;
+          const result = results[c.provider];
+          const last = c.lastRun?.isSample ? null : c.lastRun;
           return (
-            <div key={c.id} className="border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors rounded-xl p-6 group">
-              <div className="flex justify-between items-start mb-6">
-                <div className={`p-3 rounded-xl ${isConnected ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-800 text-slate-400'}`}>
-                  <Icon size={24} />
-                </div>
-                <div className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${isConnected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
-                  {c.status}
-                </div>
+            <Card key={c.provider} className="flex flex-col p-6">
+              <div className="flex items-start justify-between">
+                <div className={cx('rounded-xl p-3', c.configured ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-800 text-slate-500')}><Icon /></div>
+                <span className={cx('rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                  c.configured ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-slate-800 text-slate-400')}>
+                  {c.configured ? 'Connected' : 'Not connected'}
+                </span>
               </div>
-              
-              <h3 className="text-lg font-bold text-slate-200">{c.name}</h3>
-              <p className="text-slate-500 text-sm mt-2 mb-6 h-10">
-                {c.id === 'aws' || c.id === 'azure' ? 'Optional cloud connector plugin. Read-only API ingestion.' : 'Native integration data source.'}
-              </p>
-              
-              <button 
-                onClick={() => handleConnect(c.id)}
-                disabled={isSyncingAws && c.id === 'aws'}
-                className={`w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                  isConnected 
-                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' 
-                    : isSyncingAws && c.id === 'aws'
-                    ? 'bg-sky-500/50 text-white cursor-not-allowed'
-                    : 'bg-sky-600 hover:bg-sky-500 text-white'
-                }`}
-              >
-                {isSyncingAws && c.id === 'aws' ? <RefreshCw size={16} className="animate-spin" /> : <Plug size={16} />}
-                {isSyncingAws && c.id === 'aws' ? 'Syncing...' : isConnected ? 'Configure' : 'Connect'}
-              </button>
-            </div>
+              <h3 className="mt-4 text-lg font-semibold text-slate-100">{c.name}</h3>
+
+              {c.configured ? (
+                <div className="mt-1 space-y-1 text-xs text-slate-500">
+                  <p className="truncate text-sm text-slate-300" title={c.label ?? ''}>{c.label}</p>
+                  <p>{c.target} · {METHOD_LABEL[c.method ?? 'env']}</p>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-slate-500">{c.blurb} {c.checkCount} read-only checks.</p>
+              )}
+
+              {c.configured && (
+                <div className="mt-4 text-sm">
+                  {last ? (
+                    <p className="flex items-center gap-2 text-slate-400">
+                      {last.status === 'error' ? <XCircle size={14} className="text-red-400" /> : <CheckCircle2 size={14} className="text-emerald-400" />}
+                      Last scan {formatDate(last.startedAt, true)}{last.status === 'partial' ? ' · some sections unreadable' : ''}
+                    </p>
+                  ) : <p className="text-slate-500">Not scanned yet.</p>}
+                  {last?.status === 'error' && last.error && !errors[c.provider] && <p className="mt-2 break-words text-xs text-red-300">{last.error}</p>}
+                </div>
+              )}
+
+              {errors[c.provider] && <div className="mt-3"><ErrorText>{errors[c.provider]}</ErrorText></div>}
+              {result && (
+                <div className="mt-3 rounded-lg bg-slate-950/60 p-3 text-xs text-slate-300">
+                  <p>{result.checksEvaluated} checks · {result.passed} passing · <span className="text-red-400">{result.failed} failing</span></p>
+                  <p className="text-slate-500">{result.newFindings} new findings · {result.resolvedFindings} resolved</p>
+                  {result.warnings.length > 0 && (
+                    <details className="mt-2 text-amber-300"><summary>{result.warnings.length} section(s) could not be read</summary>
+                      <ul className="mt-1 list-inside list-disc text-amber-200/80">{result.warnings.map(w => <li key={w} className="break-words">{w}</li>)}</ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-auto flex flex-col gap-2 pt-5">
+                {c.configured ? (
+                  <>
+                    <Button className="w-full" disabled={!canEdit || !!running} onClick={() => scan(c.provider)}>
+                      <Play size={14} /> {running === c.provider ? 'Scanning… (about a minute)' : 'Scan now'}
+                    </Button>
+                    {c.provider === 'devices' && (
+                      <div className="flex justify-center text-xs"><button className="text-slate-400 hover:text-slate-200" onClick={() => navigate('devices')}>Manage devices</button></div>
+                    )}
+                    {isAdmin && c.method !== 'env' && c.provider !== 'devices' && (
+                      <div className="flex justify-center gap-4 text-xs">
+                        <button className="text-slate-400 hover:text-slate-200" onClick={() => setConnecting(c.provider)}>Change connection</button>
+                        <button className="text-slate-400 hover:text-red-300" onClick={() => disconnect(c.provider, c.name)}>Disconnect</button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Button className="w-full" disabled={!isAdmin} onClick={() => (c.provider === 'devices' ? navigate('devices') : setConnecting(c.provider))}
+                    title={isAdmin ? undefined : 'Ask an admin to connect integrations'}>
+                    <Plug size={14} /> {c.provider === 'devices' ? 'Add devices' : 'Connect'}
+                  </Button>
+                )}
+              </div>
+            </Card>
           );
         })}
       </div>
+      </section>
+      ))}
+
+      {canEdit && (
+        <Card className="flex flex-col gap-4 p-6 md:flex-row md:items-center">
+          <FlaskConical className="shrink-0 text-amber-400" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-100">Sample data</h3>
+            <p className="text-sm text-slate-400">Try every feature with a fictional company on AWS, Google Cloud, Azure, Google Workspace, Microsoft 365 and GitHub. Sample data never mixes with real evidence and is removed by your first real scan.</p>
+          </div>
+          {data.features.hasSampleData
+            ? <Button variant="secondary" disabled={sampleBusy} onClick={() => sample('DELETE')}>Clear sample data</Button>
+            : <Button variant="secondary" disabled={sampleBusy} onClick={() => sample('POST')}>{sampleBusy ? 'Loading…' : 'Load sample data'}</Button>}
+        </Card>
+      )}
+
+      {active && <ConnectModal info={active} features={data.features} onClose={() => { setConnecting(null); refresh(); }} onChanged={refresh} />}
     </div>
   );
 }
