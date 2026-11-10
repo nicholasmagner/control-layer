@@ -8,7 +8,7 @@ import type { RouteParams } from '@/lib/http';
 export const GET = handle(async (req: Request, { params }: RouteParams<'provider'>) => {
   await requireUser(req, 'admin');
   const { provider } = await params;
-  if (!isProvider(provider)) throw new HttpError(404, 'Unknown cloud.');
+  if (!isProvider(provider)) throw new HttpError(404, 'Unknown integration.');
   try {
     return NextResponse.json({ choices: await signedInChoices(provider) });
   } catch (err) {

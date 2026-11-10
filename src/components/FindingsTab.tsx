@@ -37,14 +37,14 @@ export default function FindingsTab({ data, refresh, navigate }: TabProps) {
           </button>
         ))}
         <select className={cx(inputBase, 'ml-auto w-auto')} value={provider} onChange={e => setProvider(e.target.value)}>
-          <option value="all">All clouds</option>
+          <option value="all">All sources</option>
           {Object.entries(PROVIDER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </div>
 
       {list.length === 0 ? (
         <Empty icon={status === 'Open' ? CheckCircle2 : AlertTriangle} title={status === 'Open' ? 'No open findings' : `No ${status.toLowerCase()} findings`}>
-          {status === 'Open' && 'Run a scan from Cloud Accounts to check your environment.'}
+          {status === 'Open' && 'Run a scan from Integrations to check your environment.'}
         </Empty>
       ) : (
         <Card className="divide-y divide-slate-800 overflow-hidden">

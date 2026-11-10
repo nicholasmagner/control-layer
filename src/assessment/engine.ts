@@ -1,4 +1,4 @@
-import { ALL_CHECKS } from '@/checks';
+import { ALL_CHECKS, PROVIDER_IDS } from '@/checks';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, getControlDef, type FrameworkId } from '@/frameworks';
 import { computeStatus, type CheckOutcome } from './status';
@@ -24,7 +24,7 @@ export async function latestCheckOutcomes(): Promise<Map<string, CheckOutcome>> 
   const outcomes = new Map<string, CheckOutcome>();
   const realRuns = await prisma.checkRun.count({ where: { isSample: false, status: { in: ['success', 'partial'] } } });
 
-  for (const provider of ['aws', 'gcp', 'azure']) {
+  for (const provider of PROVIDER_IDS) {
     const run = await prisma.checkRun.findFirst({
       where: { provider, status: { in: ['success', 'partial'] }, ...(realRuns > 0 ? { isSample: false } : {}) },
       orderBy: { startedAt: 'desc' },

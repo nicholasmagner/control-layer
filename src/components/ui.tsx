@@ -149,7 +149,7 @@ export function formatBytes(n: number | null | undefined) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export const PROVIDER_LABEL: Record<string, string> = { aws: 'AWS', gcp: 'Google Cloud', azure: 'Azure' };
+export const PROVIDER_LABEL: Record<string, string> = { aws: 'AWS', gcp: 'Google Cloud', azure: 'Azure', gworkspace: 'Google Workspace', m365: 'Microsoft 365', github: 'GitHub' };
 
 export const isPreviewableImage = (mime: string | null | undefined) =>
   !!mime && ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(mime);

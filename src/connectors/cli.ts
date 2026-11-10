@@ -7,14 +7,15 @@ import type { Provider } from '@/checks/types';
 import { AWS_SIGNIN_PROFILE, isLocalInstall } from './config';
 
 /**
- * Browser sign-in through each cloud's official command-line tool:
- *   AWS: aws login · Google Cloud: gcloud auth application-default login · Azure: az login
+ * Browser sign-in through each service's official command-line tool:
+ *   AWS: aws login · Google Cloud: gcloud auth application-default login
+ *   Azure and Microsoft 365: az login · GitHub: gh auth login
  * On the desktop app the tool opens the user's browser. On a server it uses
  * the tool's "open this link, paste the code" mode, and the dialog in
  * ControlLayer acts as the prompt.
  */
 
-export type CliName = 'aws' | 'gcloud' | 'az';
+export type CliName = 'aws' | 'gcloud' | 'az' | 'gh';
 
 function candidateDirs(): string[] {
   const home = homedir();
@@ -25,6 +26,7 @@ function candidateDirs(): string[] {
       path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Google', 'Cloud SDK', 'google-cloud-sdk', 'bin'),
       path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Microsoft SDKs', 'Azure', 'CLI2', 'wbin'),
       path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Microsoft SDKs', 'Azure', 'CLI2', 'wbin'),
+      path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'GitHub CLI'),
     ]
     : [
       '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/snap/bin',
@@ -37,7 +39,7 @@ function candidateDirs(): string[] {
 
 export function cliFileNames(name: CliName, platform = process.platform): string[] {
   if (platform !== 'win32') return [name];
-  return name === 'aws' ? ['aws.exe', 'aws.cmd'] : [`${name}.cmd`, `${name}.exe`];
+  return name === 'aws' || name === 'gh' ? [`${name}.exe`, `${name}.cmd`] : [`${name}.cmd`, `${name}.exe`];
 }
 
 const found = new Map<CliName, { at: number; path: string | null }>();
@@ -60,7 +62,8 @@ export async function findCli(name: CliName): Promise<string | null> {
   return result;
 }
 
-const CLI_FOR: Record<Provider, CliName> = { aws: 'aws', gcp: 'gcloud', azure: 'az' };
+/** CLI used for browser sign-in; Google Workspace has none (it uses a service account). */
+export const CLI_FOR: Record<Provider, CliName | null> = { aws: 'aws', gcp: 'gcloud', azure: 'az', m365: 'az', github: 'gh', gworkspace: null };
 export const AWS_REGION_RE = /^[a-z]{2}(-[a-z]+)+-\d$/;
 
 /** The sign-in command for each cloud. `local` = the browser is on this computer. */
@@ -71,8 +74,21 @@ export function signinCommand(provider: Provider, local: boolean): { args: strin
     case 'gcp':
       return { args: ['auth', 'application-default', 'login', ...(local ? [] : ['--no-launch-browser'])], env: {} };
     case 'azure':
+    case 'm365':
       // The interactive subscription picker would wait on a hidden prompt; ControlLayer asks instead.
-      return { args: ['login', '--output', 'none', ...(local ? [] : ['--use-device-code'])], env: { AZURE_CORE_LOGIN_EXPERIENCE_V2: 'off' } };
+      // Microsoft 365-only companies often have no Azure subscription at all.
+      return {
+        args: ['login', '--output', 'none', ...(provider === 'm365' ? ['--allow-no-subscriptions'] : []), ...(local ? [] : ['--use-device-code'])],
+        env: { AZURE_CORE_LOGIN_EXPERIENCE_V2: 'off' },
+      };
+    case 'github':
+      // Remote: "open" the browser by printing the link, which the dialog shows.
+      return {
+        args: ['auth', 'login', '--web', '--hostname', 'github.com', '--git-protocol', 'https', '--skip-ssh-key', '--scopes', 'read:org'],
+        env: { GH_PROMPT_DISABLED: '1', ...(local ? {} : { GH_BROWSER: 'echo' }) },
+      };
+    case 'gworkspace':
+      throw new Error('Google Workspace connects with a service account key.');
   }
 }
 
@@ -83,7 +99,7 @@ const URL_RE = /https:\/\/[^\s"'<>)]+/g;
 export function parseSigninOutput(text: string): { urls: string[]; code: string | null } {
   const clean = text.replace(ANSI, '');
   const urls = [...new Set(clean.match(URL_RE) ?? [])];
-  const code = clean.match(/enter the code ([A-Z0-9-]{6,})/i)?.[1] ?? null;
+  const code = clean.match(/(?:enter the code|one-time code:)\s*([A-Z0-9-]{6,})/i)?.[1] ?? null;
   return { urls, code };
 }
 
@@ -121,6 +137,7 @@ const quote = (p: string) => (process.platform === 'win32' && /\s/.test(p) ? `"$
 
 export async function startSignin(provider: Provider, opts: { awsRegion?: string } = {}): Promise<SigninJob> {
   const cliName = CLI_FOR[provider];
+  if (!cliName) throw new Error('This service does not use browser sign-in.');
   const cli = await findCli(cliName);
   if (!cli) throw new Error(`The ${cliName} command-line tool is not installed on the computer running ControlLayer.`);
 
@@ -149,6 +166,8 @@ export async function startSignin(provider: Provider, opts: { awsRegion?: string
     job.urls = urls;
     job.code = code ?? job.code;
   };
+  // gh waits for Enter before opening the browser.
+  if (provider === 'github') child.stdin.write('\n');
   child.stdout.on('data', onData);
   child.stderr.on('data', onData);
   child.on('error', err => {
@@ -192,4 +211,17 @@ export function cancelSignin(id: string) {
   if (!j) return;
   if (j.status === 'running') j.status = 'cancelled';
   j.child?.kill();
+}
+
+/** The token the gh CLI stored after `gh auth login`. */
+export async function githubCliToken(): Promise<string> {
+  const cli = await findCli('gh');
+  if (!cli) throw new Error('The GitHub CLI (gh) is not installed on the computer running ControlLayer.');
+  return new Promise((resolve, reject) => {
+    execFile(quote(cli), ['auth', 'token', '--hostname', 'github.com'], { windowsHide: true, shell: process.platform === 'win32' && cli.endsWith('.cmd') }, (err, stdout) => {
+      const token = stdout.trim();
+      if (err || !token) reject(new Error('GitHub sign-in has expired. Open Integrations and connect GitHub again.'));
+      else resolve(token);
+    });
+  });
 }

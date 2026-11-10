@@ -22,6 +22,8 @@ export default function PeopleTab({ data, refresh, navigate }: TabProps) {
   const active = people.filter(p => p.active);
   const pending = active.filter(p => p.pending.length > 0);
   const signoffPolicies = policies.filter(p => p.latest && p.requiresSignoff).length;
+  const directories = data.connectors.filter(c => (c.provider === 'gworkspace' || c.provider === 'm365') && c.configured);
+  const [synced, setSynced] = useState('');
   const list = useMemo(() => people.filter(p => filter === 'left' ? !p.active : filter === 'pending' ? p.active && p.pending.length > 0 : p.active), [people, filter]);
 
   async function run(fn: () => Promise<unknown>) {
@@ -48,16 +50,23 @@ export default function PeopleTab({ data, refresh, navigate }: TabProps) {
         title="People"
         subtitle="Everyone who works for you: employees and contractors. Each person gets a personal link to read and accept your policies; no account needed."
         actions={canEdit && <>
+          {directories.map(d => (
+            <Button key={d.provider} variant="secondary" disabled={busy} onClick={() => run(async () => {
+              const r = await api<{ added: number; skipped: number }>('/api/people/sync', { method: 'POST', json: { provider: d.provider } });
+              setSynced(`${r.added} added from ${d.name}${r.skipped ? `; ${r.skipped} already listed, inactive or guests` : ''}.`);
+            })}><Users size={15} /> Import from {d.name}</Button>
+          ))}
           <Button variant="secondary" onClick={() => setImporting(true)}><Upload size={15} /> Import CSV</Button>
           <Button onClick={() => setAdding(true)}><UserPlus size={15} /> Add person</Button>
         </>}
       />
       <ErrorText>{error}</ErrorText>
+      {synced && <p className="flex items-center gap-2 text-sm text-emerald-400"><Check size={15} /> {synced}</p>}
 
       {people.length === 0 ? (
         <Card className="p-8">
           <Empty icon={Users} title="No people yet">
-            Add the people who work for you, one by one or from a CSV export of your HR or payroll system. Auditors check that everyone accepted your policies and that people who left lost their access.
+            Add the people who work for you, one by one, from a CSV export of your HR or payroll system, or from Google Workspace or Microsoft 365 (connect them under Integrations). Auditors check that everyone accepted your policies and that people who left lost their access.
           </Empty>
         </Card>
       ) : (

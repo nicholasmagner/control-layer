@@ -59,7 +59,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
     { id: 'policies', label: 'Policies', icon: FileText, badge: data.policies.policies.filter(p => p.overdue).length },
     { id: 'people', label: 'People', icon: Users },
     { id: 'evidence', label: 'Evidence & Audits', icon: FolderArchive },
-    { id: 'connectors', label: 'Cloud Accounts', icon: Cloud },
+    { id: 'connectors', label: 'Integrations', icon: Cloud },
     { id: 'assistant', label: 'Assistant', icon: Bot, hidden: !data.features.assistant },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -122,7 +122,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
         {data.features.hasSampleData && (
           <div className="flex flex-wrap items-center gap-3 border-b border-amber-500/20 bg-amber-500/10 px-6 py-2.5 text-sm text-amber-200">
             <FlaskConical size={16} />
-            <span className="flex-1">You are viewing <strong>sample data</strong> for a fictional company. It is replaced automatically after your first real cloud scan.</span>
+            <span className="flex-1">You are viewing <strong>sample data</strong> for a fictional company. It is replaced automatically after your first real scan.</span>
             {canEdit && (
               <Button size="sm" variant="secondary" onClick={async () => { await api('/api/sample-data', { method: 'DELETE' }); refresh(); }}>
                 Clear sample data

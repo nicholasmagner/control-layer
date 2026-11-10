@@ -10,7 +10,7 @@ export const maxDuration = 300;
 export const POST = handle(async (req: Request) => {
   const user = await requireUser(req, 'edit');
   const body = await readJson(req);
-  if (!isProvider(body.provider)) throw new HttpError(400, 'provider must be aws, gcp or azure.');
+  if (!isProvider(body.provider)) throw new HttpError(400, 'Unknown integration.');
   const summary = await runScan(body.provider, { actor: user.email });
   return NextResponse.json(summary, { status: summary.ok ? 200 : 502 });
 });

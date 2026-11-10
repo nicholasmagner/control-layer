@@ -1,6 +1,23 @@
 import type { FrameworkId } from '@/frameworks';
 
-export type Provider = 'aws' | 'gcp' | 'azure';
+export type Provider = 'aws' | 'gcp' | 'azure' | 'github' | 'gworkspace' | 'm365';
+
+/** People marked as having left, from the People list, for offboarding checks. */
+export interface FormerPerson {
+  name: string;
+  email: string;
+  githubUsername?: string | null;
+  endDate: string;
+}
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+/** Finds the former person an account belongs to, by email (or alias) or GitHub username. */
+export function matchFormer(former: FormerPerson[], account: { emails?: string[]; login?: string }): FormerPerson | undefined {
+  const emails = new Set((account.emails ?? []).map(norm));
+  const login = account.login ? norm(account.login) : null;
+  return former.find(p => emails.has(norm(p.email)) || (!!login && !!p.githubUsername && norm(p.githubUsername) === login));
+}
 export type Severity = 'High' | 'Medium' | 'Low';
 
 export interface ResourceResult {
@@ -32,3 +49,4 @@ export interface CheckDef<Inventory> {
 export const ADMIN_PORTS = [22, 3389] as const;
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const MAX_CREDENTIAL_AGE_DAYS = 90;
+export const INACTIVE_DAYS = 90;

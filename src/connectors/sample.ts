@@ -1,6 +1,8 @@
 import type { AwsInventory } from '@/checks/aws';
 import type { AzureInventory } from '@/checks/azure';
 import type { GcpInventory } from '@/checks/gcp';
+import type { GithubInventory } from '@/checks/github';
+import type { DirectoryUser, IdentityInventory } from '@/checks/identity';
 import type { Provider } from '@/checks/types';
 import type { CollectResult } from './common';
 
@@ -105,10 +107,77 @@ export function sampleAzure(now = new Date()): AzureInventory {
   };
 }
 
-export function sampleInventory(provider: Provider): CollectResult<AwsInventory | GcpInventory | AzureInventory> {
+/** Sample people who left, for the offboarding checks. */
+const sampleFormer = (now: Date) => [
+  { name: 'Sam Rivera', email: 'sam.rivera@acme.example', githubUsername: 'samr-dev', endDate: daysAgo(21, now) },
+];
+
+export function sampleGworkspace(now = new Date()): IdentityInventory {
+  const u = (email: string, name: string, o: Partial<DirectoryUser> = {}): DirectoryUser => ({
+    id: email, email, name, isAdmin: false, active: true, mfaRegistered: true, lastSignIn: daysAgo(1, now), createdAt: daysAgo(400, now), ...o,
+  });
+  return {
+    tenant: 'acme.example',
+    collectedAt: now.toISOString(),
+    mfaEnforced: { enforced: false, how: '2-Step Verification is enforced for 4 of 6 active users' },
+    users: [
+      u('maria@acme.example', 'Maria Lopez', { isAdmin: true }),
+      u('it-admin@acme.example', 'IT Admin', { isAdmin: true, lastSignIn: daysAgo(12, now) }),
+      u('dev.chen@acme.example', 'Dev Chen', { mfaRegistered: false }),
+      u('priya@acme.example', 'Priya Natarajan'),
+      u('sam.rivera@acme.example', 'Sam Rivera', { lastSignIn: daysAgo(22, now) }),
+      u('events@acme.example', 'Events Mailbox', { lastSignIn: daysAgo(140, now), mfaRegistered: false }),
+      u('old.intern@acme.example', 'Former Intern', { active: false, lastSignIn: daysAgo(300, now) }),
+    ],
+    formerPeople: sampleFormer(now),
+  };
+}
+
+export function sampleM365(now = new Date()): IdentityInventory {
+  return {
+    tenant: 'acme.onmicrosoft.com',
+    collectedAt: now.toISOString(),
+    mfaEnforced: { enforced: true, how: 'security defaults are on' },
+    users: [
+      { id: '1', email: 'maria@acme.onmicrosoft.com', name: 'Maria Lopez', isAdmin: true, active: true, mfaRegistered: true, lastSignIn: daysAgo(0, now) },
+      { id: '2', email: 'finance@acme.onmicrosoft.com', name: 'Finance', isAdmin: false, active: true, mfaRegistered: true, lastSignIn: daysAgo(3, now) },
+      { id: '3', email: 'partner_contoso.com#EXT#@acme.onmicrosoft.com', name: 'Partner (guest)', isAdmin: false, active: true, guest: true, mfaRegistered: false, lastSignIn: daysAgo(30, now) },
+    ],
+    formerPeople: sampleFormer(now),
+  };
+}
+
+export function sampleGithub(now = new Date()): GithubInventory {
+  return {
+    org: 'acme-example',
+    collectedAt: now.toISOString(),
+    twoFactorRequired: false,
+    defaultRepoPermission: 'read',
+    members: [
+      { login: 'maria-lopez', role: 'admin', twoFactorEnabled: true },
+      { login: 'devchen', role: 'member', twoFactorEnabled: true },
+      { login: 'priya-n', role: 'member', twoFactorEnabled: false },
+      { login: 'samr-dev', role: 'member', twoFactorEnabled: true },
+    ],
+    repos: [
+      { name: 'web-app', private: true, defaultBranch: 'main', requiredReviews: 1, secretScanning: true, dependabotAlerts: true },
+      { name: 'api', private: true, defaultBranch: 'main', requiredReviews: 2, secretScanning: true, dependabotAlerts: true },
+      { name: 'infrastructure', private: true, defaultBranch: 'main', requiredReviews: 0, secretScanning: false, dependabotAlerts: true },
+      { name: 'docs', private: false, defaultBranch: 'main', requiredReviews: 1, secretScanning: true, dependabotAlerts: false },
+    ],
+    formerPeople: sampleFormer(now),
+  };
+}
+
+type AnyInventory = AwsInventory | GcpInventory | AzureInventory | IdentityInventory | GithubInventory;
+
+export function sampleInventory(provider: Provider): CollectResult<AnyInventory> {
   switch (provider) {
     case 'aws': { const inventory = sampleAws(); return { inventory, errors: [], account: `${inventory.accountId} (sample)` }; }
     case 'gcp': { const inventory = sampleGcp(); return { inventory, errors: [], account: `${inventory.projectId} (sample)` }; }
     case 'azure': { const inventory = sampleAzure(); return { inventory, errors: [], account: 'acme-prod (sample)' }; }
+    case 'gworkspace': return { inventory: sampleGworkspace(), errors: [], account: 'acme.example (sample)' };
+    case 'm365': return { inventory: sampleM365(), errors: [], account: 'acme.onmicrosoft.com (sample)' };
+    case 'github': return { inventory: sampleGithub(), errors: [], account: 'acme-example (sample)' };
   }
 }

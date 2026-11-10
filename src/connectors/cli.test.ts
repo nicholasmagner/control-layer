@@ -44,3 +44,15 @@ describe('lastErrorLine', () => {
     expect(lastErrorLine('all fine')).toBeNull();
   });
 });
+
+describe('GitHub and Microsoft 365 sign-in', () => {
+  it('reads the GitHub one-time code and link', () => {
+    const out = '! First copy your one-time code: 1A2B-3C4D\nOpen this URL to continue in your web browser: https://github.com/login/device\n';
+    expect(parseSigninOutput(out)).toEqual({ urls: ['https://github.com/login/device'], code: '1A2B-3C4D' });
+  });
+  it('allows Microsoft 365 tenants without an Azure subscription', () => {
+    expect(signinCommand('m365', true).args).toContain('--allow-no-subscriptions');
+    expect(signinCommand('azure', true).args).not.toContain('--allow-no-subscriptions');
+    expect(signinCommand('github', false).env.GH_BROWSER).toBe('echo');
+  });
+});

@@ -16,7 +16,7 @@ export const AWS_REGIONS = [
   'ap-south-1', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1',
 ];
 
-const CLI_LABEL: Record<string, string> = { aws: 'AWS CLI', gcloud: 'Google Cloud CLI (gcloud)', az: 'Azure CLI' };
+const CLI_LABEL: Record<string, string> = { aws: 'AWS CLI', gcloud: 'Google Cloud CLI (gcloud)', az: 'Azure CLI', gh: 'GitHub CLI (gh)' };
 
 export default function ConnectModal({ info, features, onClose, onChanged }: {
   info: Info;
@@ -24,7 +24,7 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
   onClose: () => void;
   onChanged: () => void;
 }) {
-  const [step, setStep] = useState<Step>('choose');
+  const [step, setStep] = useState<Step>(info.cli ? 'choose' : 'keys');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
@@ -145,8 +145,8 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
     <Modal title={`Connect ${info.name}`} onClose={cancel} wide>
       {step === 'choose' && (
         <div className="space-y-4">
-          <p className="text-sm text-slate-400">ControlLayer only reads configuration; it never changes anything in your cloud.</p>
-          <button disabled={!info.cli.installed || busy} onClick={startSignin}
+          <p className="text-sm text-slate-400">ControlLayer only reads settings; it never changes anything in {info.name}.</p>
+          {info.cli && <button disabled={!info.cli.installed || busy} onClick={startSignin}
             className="flex w-full items-start gap-4 rounded-xl border border-slate-700 p-5 text-left transition-colors hover:border-sky-500/60 hover:bg-sky-500/5 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-700 disabled:hover:bg-transparent">
             <LogIn className="mt-0.5 shrink-0 text-sky-400" />
             <span className="flex-1">
@@ -159,17 +159,17 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
                 </span>
               )}
             </span>
-          </button>
+          </button>}
           <button disabled={!features.canStoreKeys} onClick={() => setStep('keys')}
             className="flex w-full items-start gap-4 rounded-xl border border-slate-700 p-5 text-left transition-colors hover:border-sky-500/60 hover:bg-sky-500/5 disabled:cursor-not-allowed disabled:opacity-60">
             <KeyRound className="mt-0.5 shrink-0 text-sky-400" />
             <span className="flex-1">
-              <span className="block font-semibold text-slate-100">Use a read-only {info.provider === 'gcp' ? 'service account key' : info.provider === 'azure' ? 'service principal' : 'access key'}</span>
+              <span className="block font-semibold text-slate-100">Use {info.setup.keyName}</span>
               <span className="mt-1 block text-sm text-slate-400">Best for automatic scheduled scans. {info.setup.permissions} Stored encrypted.</span>
               {!features.canStoreKeys && <span className="mt-2 block text-sm text-amber-300">Unavailable: the server has no CONTROLLAYER_SECRET_KEY to encrypt keys with.</span>}
             </span>
           </button>
-          {isAws && info.cli.installed && <div className="pt-1">{regionPicker}</div>}
+          {isAws && info.cli?.installed && <div className="pt-1">{regionPicker}</div>}
           <ErrorText>{error}</ErrorText>
         </div>
       )}
@@ -191,11 +191,11 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
               )}
             </div>
           )}
-          {job.status === 'succeeded' && !error && <p className="text-sm text-emerald-300">Signed in. Loading your {isAws ? 'account' : info.provider === 'gcp' ? 'projects' : 'subscriptions'}…</p>}
+          {job.status === 'succeeded' && !error && <p className="text-sm text-emerald-300">Signed in. Loading your {info.setup.pickWord}s…</p>}
           {(job.status === 'failed' || job.status === 'cancelled') && <ErrorText>{job.error ?? 'Sign-in was cancelled.'}</ErrorText>}
 
           <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-            <div className="flex items-center gap-2 border-b border-slate-800 px-3 py-1.5 text-xs text-slate-500"><Terminal size={12} /> {CLI_LABEL[info.cli.name]}</div>
+            <div className="flex items-center gap-2 border-b border-slate-800 px-3 py-1.5 text-xs text-slate-500"><Terminal size={12} /> {CLI_LABEL[info.cli?.name ?? '']}</div>
             <pre ref={outRef} className="max-h-48 overflow-y-auto whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed text-slate-300">{job.output || 'Starting…'}</pre>
             {job.status === 'running' && (
               <form onSubmit={sendReply} className="flex border-t border-slate-800">
@@ -219,9 +219,9 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
         <form className="space-y-5" onSubmit={e => { e.preventDefault(); save({ method: 'signin', accountId, regions }); }}>
           <p className="text-sm text-emerald-300">Signed in.</p>
           {choices.length === 0 ? (
-            <ErrorText>The signed-in user can&apos;t see any {info.provider === 'gcp' ? 'projects' : 'subscriptions'}. Sign in with a different account.</ErrorText>
+            <ErrorText>The signed-in user can&apos;t see any {info.setup.pickWord}s{info.provider === 'github' ? ' (organization owners and members only; personal accounts are not supported)' : ''}. Sign in with a different account.</ErrorText>
           ) : (
-            <Field label={isAws ? 'Account' : info.provider === 'gcp' ? 'Project to scan' : 'Subscription to scan'}>
+            <Field label={isAws ? 'Account' : `${info.setup.pickWord[0].toUpperCase()}${info.setup.pickWord.slice(1)} to scan`}>
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-slate-800 p-2">
                 {choices.map(c => (
                   <label key={c.id} className="flex cursor-pointer items-center gap-3 rounded px-2 py-1.5 text-sm hover:bg-slate-800/60">
@@ -241,7 +241,8 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
         </form>
       )}
 
-      {step === 'keys' && <KeysForm info={info} busy={busy} error={error} regionPicker={regionPicker} regions={regions} onBack={() => { setError(''); setStep('choose'); }} onSave={save} onError={setError} />}
+      {step === 'keys' && <KeysForm info={info} busy={busy} error={error} regionPicker={regionPicker} regions={regions} canStoreKeys={features.canStoreKeys}
+        onBack={info.cli ? () => { setError(''); setStep('choose'); } : cancel} onSave={save} onError={setError} />}
 
       {step === 'done' && (
         <div className="space-y-5 text-center">
@@ -261,8 +262,8 @@ export default function ConnectModal({ info, features, onClose, onChanged }: {
   );
 }
 
-function KeysForm({ info, busy, error, regionPicker, regions, onBack, onSave, onError }: {
-  info: Info; busy: boolean; error: string; regionPicker: React.ReactNode; regions: string[];
+function KeysForm({ info, busy, error, regionPicker, regions, canStoreKeys, onBack, onSave, onError }: {
+  info: Info; busy: boolean; error: string; regionPicker: React.ReactNode; regions: string[]; canStoreKeys: boolean;
   onBack: () => void; onSave: (body: Record<string, unknown>) => void; onError: (m: string) => void;
 }) {
   const [f, setF] = useState<Record<string, string>>({});
@@ -286,6 +287,9 @@ function KeysForm({ info, busy, error, regionPicker, regions, onBack, onSave, on
     e.preventDefault();
     if (info.provider === 'aws') onSave({ method: 'keys', accessKeyId: f.accessKeyId, secretAccessKey: f.secretAccessKey, regions });
     else if (info.provider === 'gcp') onSave({ method: 'keys', keyFile });
+    else if (info.provider === 'gworkspace') onSave({ method: 'keys', keyFile, adminEmail: f.adminEmail });
+    else if (info.provider === 'github') onSave({ method: 'keys', token: f.token, org: f.org });
+    else if (info.provider === 'm365') onSave({ method: 'keys', tenantId: f.tenantId, clientId: f.clientId, clientSecret: f.clientSecret });
     else onSave({ method: 'keys', tenantId: f.tenantId, clientId: f.clientId, clientSecret: f.clientSecret, subscriptionId: f.subscriptionId });
   }
 
@@ -295,7 +299,7 @@ function KeysForm({ info, busy, error, regionPicker, regions, onBack, onSave, on
         <summary className="cursor-pointer font-medium text-slate-200">How to create one (about 2 minutes)</summary>
         <ol className="mt-3 list-inside list-decimal space-y-1.5 text-slate-400">{info.setup.keyHelp.map(s => <li key={s}>{s}</li>)}</ol>
         <a href={info.setup.consoleUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300">
-          Open the {info.provider === 'aws' ? 'AWS console' : info.provider === 'gcp' ? 'Google Cloud console' : 'Azure portal'} <ExternalLink size={13} />
+          Open the {info.setup.consoleName} <ExternalLink size={13} />
         </a>
       </details>
 
@@ -308,12 +312,31 @@ function KeysForm({ info, busy, error, regionPicker, regions, onBack, onSave, on
           {regionPicker}
         </>
       )}
-      {info.provider === 'gcp' && (
+      {!canStoreKeys && <ErrorText>Unavailable: the server has no CONTROLLAYER_SECRET_KEY to encrypt keys with.</ErrorText>}
+      {(info.provider === 'gcp' || info.provider === 'gworkspace') && (
         <Field label="Service account key file (.json)">
           <input type="file" accept="application/json,.json" required onChange={e => readKeyFile(e.target.files?.[0])}
             className="block w-full text-sm text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-800 file:px-3 file:py-2 file:text-slate-200" />
           {keyFile && <span className="mt-1 block text-xs text-emerald-400">Project: {String(keyFile.project_id)} · {String(keyFile.client_email)}</span>}
         </Field>
+      )}
+      {info.provider === 'gworkspace' && (
+        <Field label="Admin email" hint="A Google Workspace admin the service account acts as. ControlLayer only reads the user directory.">
+          <input className={inputCls} required type="email" autoComplete="off" spellCheck={false} placeholder="admin@yourcompany.com" onChange={set('adminEmail')} />
+        </Field>
+      )}
+      {info.provider === 'github' && (
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Organization" hint="As in github.com/your-org"><input className={inputCls} required spellCheck={false} placeholder="your-org" onChange={set('org')} /></Field>
+          <Field label="Personal access token"><input className={inputCls} required type="password" autoComplete="off" placeholder="ghp_…" onChange={set('token')} /></Field>
+        </div>
+      )}
+      {info.provider === 'm365' && (
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Directory (tenant) ID"><input className={inputCls} required spellCheck={false} onChange={set('tenantId')} /></Field>
+          <Field label="Application (client) ID"><input className={inputCls} required spellCheck={false} onChange={set('clientId')} /></Field>
+          <Field label="Client secret value"><input className={inputCls} required type="password" autoComplete="off" onChange={set('clientSecret')} /></Field>
+        </div>
       )}
       {info.provider === 'azure' && (
         <div className="grid gap-3 md:grid-cols-2">
@@ -325,8 +348,8 @@ function KeysForm({ info, busy, error, regionPicker, regions, onBack, onSave, on
       )}
       <ErrorText>{error}</ErrorText>
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onBack}>Back</Button>
-        <Button type="submit" disabled={busy || (info.provider === 'gcp' && !keyFile)}>{busy ? 'Checking…' : 'Check and connect'}</Button>
+        <Button type="button" variant="ghost" onClick={onBack}>{info.cli ? 'Back' : 'Cancel'}</Button>
+        <Button type="submit" disabled={busy || !canStoreKeys || ((info.provider === 'gcp' || info.provider === 'gworkspace') && !keyFile)}>{busy ? 'Checking…' : 'Check and connect'}</Button>
       </div>
     </form>
   );

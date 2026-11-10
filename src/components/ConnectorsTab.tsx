@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Cloud, FlaskConical, Play, Plug, XCircle } from 'lucide-react';
+import { CheckCircle2, Cloud, FlaskConical, GitBranch, Play, Plug, Users, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { TabProps } from './AppShell';
 import ConnectModal from './ConnectModal';
@@ -9,6 +9,12 @@ import { api, Button, Card, cx, ErrorText, formatDate, PageHeader } from './ui';
 interface ScanSummary { ok: boolean; error?: string; checksEvaluated: number; passed: number; failed: number; newFindings: number; resolvedFindings: number; warnings: string[] }
 
 const METHOD_LABEL: Record<string, string> = { signin: 'Browser sign-in', keys: 'Read-only key', env: 'Server settings' };
+
+const GROUPS = [
+  { kind: 'cloud', title: 'Cloud', icon: Cloud, text: 'Where your product runs.' },
+  { kind: 'identity', title: 'Identity and email', icon: Users, text: 'Company accounts: MFA, unused accounts, admins, and access for people who left.' },
+  { kind: 'code', title: 'Code', icon: GitBranch, text: 'Code review, two-factor sign-in and security scanning for your source code.' },
+] as const;
 
 export default function ConnectorsTab({ data, refresh }: TabProps) {
   const canEdit = data.user.role !== 'auditor';
@@ -51,18 +57,25 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Cloud accounts"
-        subtitle={<>Connect each cloud once. Scans are <strong className="text-slate-300">read-only</strong>: ControlLayer never changes your cloud. {data.features.scanIntervalHours ? `Automatic scans run every ${data.features.scanIntervalHours} hour(s).` : ''}</>}
+        title="Integrations"
+        subtitle={<>Connect each service once. Scans are <strong className="text-slate-300">read-only</strong>: ControlLayer never changes anything. {data.features.scanIntervalHours ? `Automatic scans run every ${data.features.scanIntervalHours} hour(s).` : ''}</>}
       />
 
+      {GROUPS.map(g => (
+      <section key={g.kind} className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">{g.title}</h3>
+          <p className="text-sm text-slate-500">{g.text}</p>
+        </div>
       <div className="grid gap-6 lg:grid-cols-3">
-        {data.connectors.map(c => {
+        {data.connectors.filter(c => c.kind === g.kind).map(c => {
+          const Icon = g.icon;
           const result = results[c.provider];
           const last = c.lastRun?.isSample ? null : c.lastRun;
           return (
             <Card key={c.provider} className="flex flex-col p-6">
               <div className="flex items-start justify-between">
-                <div className={cx('rounded-xl p-3', c.configured ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-800 text-slate-500')}><Cloud /></div>
+                <div className={cx('rounded-xl p-3', c.configured ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-800 text-slate-500')}><Icon /></div>
                 <span className={cx('rounded-full border px-2.5 py-0.5 text-xs font-semibold',
                   c.configured ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-slate-800 text-slate-400')}>
                   {c.configured ? 'Connected' : 'Not connected'}
@@ -76,7 +89,7 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
                   <p>{c.target} · {METHOD_LABEL[c.method ?? 'env']}</p>
                 </div>
               ) : (
-                <p className="mt-1 text-sm text-slate-500">{c.checkCount} read-only checks. Takes about a minute to connect.</p>
+                <p className="mt-1 text-sm text-slate-500">{c.blurb} {c.checkCount} read-only checks.</p>
               )}
 
               {c.configured && (
@@ -118,7 +131,7 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
                     )}
                   </>
                 ) : (
-                  <Button className="w-full" disabled={!isAdmin} onClick={() => setConnecting(c.provider)} title={isAdmin ? undefined : 'Ask an admin to connect cloud accounts'}>
+                  <Button className="w-full" disabled={!isAdmin} onClick={() => setConnecting(c.provider)} title={isAdmin ? undefined : 'Ask an admin to connect integrations'}>
                     <Plug size={14} /> Connect
                   </Button>
                 )}
@@ -127,13 +140,15 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
           );
         })}
       </div>
+      </section>
+      ))}
 
       {canEdit && (
         <Card className="flex flex-col gap-4 p-6 md:flex-row md:items-center">
           <FlaskConical className="shrink-0 text-amber-400" />
           <div className="flex-1">
             <h3 className="font-semibold text-slate-100">Sample data</h3>
-            <p className="text-sm text-slate-400">Try every feature with a fictional company on AWS, Google Cloud and Azure. Sample data never mixes with real evidence and is removed by your first real scan.</p>
+            <p className="text-sm text-slate-400">Try every feature with a fictional company on AWS, Google Cloud, Azure, Google Workspace, Microsoft 365 and GitHub. Sample data never mixes with real evidence and is removed by your first real scan.</p>
           </div>
           {data.features.hasSampleData
             ? <Button variant="secondary" disabled={sampleBusy} onClick={() => sample('DELETE')}>Clear sample data</Button>

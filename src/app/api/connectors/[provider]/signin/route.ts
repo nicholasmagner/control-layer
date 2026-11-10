@@ -15,13 +15,13 @@ import { readJson, type RouteParams } from '@/lib/http';
 export const POST = handle(async (req: Request, { params }: RouteParams<'provider'>) => {
   const user = await requireUser(req, 'admin');
   const { provider } = await params;
-  if (!isProvider(provider)) throw new HttpError(404, 'Unknown cloud.');
+  if (!isProvider(provider)) throw new HttpError(404, 'Unknown integration.');
   const body = await readJson<{ action?: string; job?: string; text?: string; awsRegion?: string }>(req);
 
   if (body.action === 'start') {
     try {
       const job = await startSignin(provider, { awsRegion: body.awsRegion });
-      await logEvent({ action: 'Cloud sign-in started', actor: user.email, decision: 'Started', resource: provider });
+      await logEvent({ action: 'Sign-in started', actor: user.email, decision: 'Started', resource: provider });
       return NextResponse.json(job);
     } catch (err) {
       throw new HttpError(400, err instanceof Error ? err.message : String(err));
