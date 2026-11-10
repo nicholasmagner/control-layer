@@ -1,6 +1,14 @@
 import { GoogleAuth } from 'google-auth-library';
 import type { GcpInventory } from '@/checks/gcp';
 import { CollectResult, section } from './common';
+import type { GcpConnection } from './config';
+
+const SCOPES = ['https://www.googleapis.com/auth/cloud-platform.read-only'];
+
+/** Service account key from the connection, or Application Default Credentials (gcloud sign-in). */
+export function gcpAuth(conn: Pick<GcpConnection, 'keyFile'>) {
+  return conn.keyFile ? new GoogleAuth({ credentials: conn.keyFile, scopes: SCOPES }) : new GoogleAuth({ scopes: SCOPES });
+}
 
 /**
  * Read-only Google Cloud collector using Application Default Credentials
@@ -8,14 +16,6 @@ import { CollectResult, section } from './common';
  * service account). Grant the scanning identity "Security Reviewer"
  * (roles/iam.securityReviewer) and "Viewer" (roles/viewer) on the project.
  */
-
-export function gcpProjectId(): string | undefined {
-  return process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || undefined;
-}
-
-export function gcpConfigured(): boolean {
-  return !!gcpProjectId();
-}
 
 type Json = Record<string, unknown>;
 
@@ -33,10 +33,9 @@ async function getAll<T>(auth: GoogleAuth, url: string, key: string): Promise<T[
   return out;
 }
 
-export async function collectGcp(): Promise<CollectResult<GcpInventory>> {
-  const projectId = gcpProjectId();
-  if (!projectId) throw new Error('GCP_PROJECT_ID is not set.');
-  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform.read-only'] });
+export async function collectGcp(conn: GcpConnection): Promise<CollectResult<GcpInventory>> {
+  const projectId = conn.projectId;
+  const auth = gcpAuth(conn);
   const errors: string[] = [];
   const inventory: GcpInventory = { projectId, collectedAt: new Date().toISOString() };
   const p = encodeURIComponent(projectId);

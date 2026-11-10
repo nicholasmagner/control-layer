@@ -53,11 +53,11 @@ You need Docker with Compose.
 ```bash
 git clone https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst.git controllayer
 cd controllayer
-cp .env.example .env          # set ORGANIZATION_NAME and cloud credentials here
+cp .env.example .env          # set ORGANIZATION_NAME and CONTROLLAYER_SECRET_KEY
 docker compose up -d --build
 ```
 
-Open <http://localhost:3000> and create the first admin account. Then load the sample data, or connect a cloud account under **Cloud Accounts**.
+Open <http://localhost:3000> and create the first admin account. Then load the sample data, or click **Connect** under **Cloud Accounts**.
 
 Database migrations run automatically when the container starts. Uploaded evidence is stored in PostgreSQL, so back up the `postgres_data` volume.
 
@@ -65,17 +65,22 @@ For anything beyond a laptop, put ControlLayer behind HTTPS (for example Caddy, 
 
 ## Connecting cloud accounts
 
-Scans only read configuration. Use a dedicated identity with read-only permissions:
+Open **Cloud Accounts** and click **Connect** on AWS, Google Cloud or Azure. There are two ways to connect:
 
-| Cloud | Permissions | Settings (`.env`) |
-| :--- | :--- | :--- |
-| **AWS** | Managed policy `SecurityAudit` | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, or `AWS_PROFILE`, or an IAM role on the host. `AWS_REGIONS=us-east-1,us-west-2` |
-| **Google Cloud** | `Viewer` + `Security Reviewer` on the project | `GCP_PROJECT_ID`, plus `GOOGLE_APPLICATION_CREDENTIALS` (service account key) or an attached service account |
-| **Azure** | `Reader` + `Security Reader` on the subscription | `AZURE_SUBSCRIPTION_ID`, plus `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` or a managed identity |
+- **Sign in with your browser** (easiest, in the desktop app). ControlLayer runs the cloud's official sign-in (`aws login`, `gcloud auth application-default login` or `az login`), your browser opens, and you sign in as usual. Then you pick the account, project or subscription to scan. This needs that cloud's command-line tool installed; the dialog links to it if it's missing. On a server, the same dialog shows the sign-in link and a box to paste the code into.
+- **Use a read-only key**: an AWS access key, a Google Cloud service account key file, or an Azure service principal. The dialog shows the few steps to create one. Keys are checked with the cloud before saving and stored encrypted (`CONTROLLAYER_SECRET_KEY`). This is the best choice for automatic scheduled scans; AWS browser sessions last up to 12 hours.
 
-Restart the app after changing credentials, then click **Scan now**. If a permission is missing, the scan still runs everything it can and lists the sections it could not read. Those checks are reported as not evaluated, never as passing.
+Either way, ControlLayer only reads configuration. The permissions it needs:
 
-The first real scan automatically removes the sample data.
+| Cloud | Read-only permissions |
+| :--- | :--- |
+| **AWS** | Managed policy `SecurityAudit` (browser sign-in also needs `SignInLocalDevelopmentAccess`) |
+| **Google Cloud** | `Viewer` + `Security Reviewer` on the project |
+| **Azure** | `Reader` + `Security Reader` on the subscription |
+
+If a permission is missing, the scan still runs everything it can and lists the sections it could not read. Those checks are reported as not evaluated, never as passing. The first real scan automatically removes the sample data.
+
+Server installs can still use environment variables instead; see [`.env.example`](./.env.example).
 
 ### Scheduled scans
 
@@ -121,7 +126,8 @@ All settings are environment variables; see [`.env.example`](./.env.example).
 | `SCAN_INTERVAL_HOURS` | Automatic scans while the server runs |
 | `SNAPSHOT_INTERVAL_DAYS` | How often an unchanged check gets a fresh evidence image (default 30) |
 | `TIMESTAMP_AUTHORITY_URL` | RFC 3161 Time-Stamp Authority (default `https://freetsa.org/tsr`; `off` to disable) |
-| `AWS_*`, `GCP_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*` | Cloud credentials (see above) |
+| `CONTROLLAYER_SECRET_KEY` | Encrypts cloud keys saved in the app (`openssl rand -base64 32`) |
+| `AWS_*`, `GCP_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*` | Optional: cloud credentials from the environment instead of the app |
 | `ENABLE_AWS_REMEDIATION` | Lets admins apply a "require MFA" IAM policy to an AWS user from a finding. **This is the only feature that changes a cloud account**; it is off by default and needs `iam:PutUserPolicy`. |
 | `ASSISTANT_API_KEY`, `ASSISTANT_MODEL` | Optional assistant that explains controls and drafts audit narrative from your data. It can only read and answer; pass/fail always comes from the checks. Off when unset. |
 | `SECURE_COOKIES` | Force HTTPS-only session cookies (automatic behind an HTTPS proxy) |

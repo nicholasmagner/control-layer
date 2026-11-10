@@ -210,3 +210,23 @@ model ChainAnchor {
 
   @@index([seq])
 }
+
+// ---------------------------------------------------------------------------
+// Cloud account connections made in the app (Cloud Accounts > Connect).
+// Keys are encrypted with CONTROLLAYER_SECRET_KEY; environment variables
+// still work as a fallback for server installs.
+// ---------------------------------------------------------------------------
+
+model ConnectorConfig {
+  // 'aws' | 'gcp' | 'azure'
+  provider    String   @id
+  // 'signin' (browser sign-in through the cloud's CLI) | 'keys'
+  method      String
+  // Non-secret settings: regions, project, subscription, account label.
+  settings    Json
+  // AES-256-GCM encrypted JSON with keys, when method = 'keys'.
+  secret      String?
+  connectedBy String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

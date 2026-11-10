@@ -32,15 +32,20 @@ so your computer asks you to confirm the first time:
 2. Click **Load sample data** to explore, or connect your cloud accounts (below).
 3. Everything else works exactly as described in the main [README](../README.md).
 
-### Settings and cloud accounts
+### Connecting your cloud accounts
 
-Choose **ControlLayer > Settings…** (Ctrl+, / Cmd+,). This opens a text file
-where you can set your organization name and cloud credentials. Save it, then
+Open **Cloud Accounts** and click **Connect**. Choose **Sign in with your
+browser**: your browser opens, you sign in to AWS, Google Cloud or Azure as
+usual, and you pick what to scan. This uses the cloud's own command-line tool
+(AWS CLI, `gcloud` or Azure CLI); if it isn't installed yet, the dialog links
+to the installer. Or choose **Use a read-only key** and follow the short steps
+shown. Keys are stored encrypted on this computer.
+
+### Settings
+
+**ControlLayer > Settings…** (Ctrl+, / Cmd+,) opens a small text file for the
+organization name, automatic scan schedule and network sharing. Save it, then
 choose **ControlLayer > Restart ControlLayer**.
-
-If the AWS CLI, `gcloud` or `az` command-line tools are already logged in on
-your computer, ControlLayer uses those credentials. You only need to fill in
-`GCP_PROJECT_ID` or `AZURE_SUBSCRIPTION_ID`.
 
 ### Sharing with your team or auditor
 

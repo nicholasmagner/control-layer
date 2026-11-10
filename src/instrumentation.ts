@@ -26,7 +26,7 @@ export async function register() {
     if (running) return;
     running = true;
     try {
-      for (const c of connectorInfo().filter(x => x.configured)) {
+      for (const c of (await connectorInfo()).filter(x => x.configured)) {
         const s = await runScan(c.provider, { actor: 'scheduled scan' });
         console.log(`[scheduled scan] ${c.provider}: ${s.ok ? `${s.failed} failing resources` : `failed - ${s.error}`}`);
       }

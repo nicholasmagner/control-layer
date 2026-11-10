@@ -15,26 +15,8 @@ export const SETTINGS_TEMPLATE = `# ControlLayer settings
 # Shown in the app and on audit evidence packages.
 ORGANIZATION_NAME=
 
-# --- Cloud accounts (read-only) ---------------------------------------------
-# AWS: if the AWS CLI is set up on this computer (aws configure / aws sso login),
-# ControlLayer uses those credentials automatically. Otherwise set keys here.
-# Grant the scanning user the AWS managed policy "SecurityAudit".
-AWS_PROFILE=
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGIONS=us-east-1
-
-# Google Cloud: run "gcloud auth application-default login" on this computer,
-# or point to a service account key file. Needs Viewer + Security Reviewer.
-GCP_PROJECT_ID=
-GOOGLE_APPLICATION_CREDENTIALS=
-
-# Azure: run "az login" on this computer, or set a service principal.
-# Needs Reader + Security Reader on the subscription.
-AZURE_SUBSCRIPTION_ID=
-AZURE_TENANT_ID=
-AZURE_CLIENT_ID=
-AZURE_CLIENT_SECRET=
+# Cloud accounts are connected in the app: Cloud Accounts > Connect.
+# (Advanced: AWS_*, GCP_* and AZURE_* environment variables still work.)
 
 # --- Scheduling and evidence ------------------------------------------------
 # Scan every configured account every N hours while the app is open.
@@ -98,11 +80,19 @@ export function loadSettings(p: Paths): Record<string, string> {
   return parseEnv(readFileSync(p.settings, 'utf8'));
 }
 
-/** The local database password, created once per installation. */
-export function databaseSecret(p: Paths): { password: string } {
-  if (existsSync(p.secrets)) return JSON.parse(readFileSync(p.secrets, 'utf8'));
-  const secret = { password: randomBytes(24).toString('base64url') };
-  mkdirSync(p.data, { recursive: true });
-  writeFileSync(p.secrets, JSON.stringify(secret), { mode: 0o600 });
+/**
+ * Per-installation secrets, created on first start: the local database
+ * password and the key that encrypts saved cloud keys.
+ */
+export function databaseSecret(p: Paths): { password: string; secretKey: string } {
+  const existing = existsSync(p.secrets) ? JSON.parse(readFileSync(p.secrets, 'utf8')) : {};
+  const secret = {
+    password: existing.password ?? randomBytes(24).toString('base64url'),
+    secretKey: existing.secretKey ?? randomBytes(32).toString('base64url'),
+  };
+  if (existing.password !== secret.password || existing.secretKey !== secret.secretKey) {
+    mkdirSync(p.data, { recursive: true });
+    writeFileSync(p.secrets, JSON.stringify(secret), { mode: 0o600 });
+  }
   return secret;
 }

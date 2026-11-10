@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, shell, utilityProcess, type UtilityProcess } from 'electron';
 import EmbeddedPostgres from 'embedded-postgres';
-import { execFile, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, type WriteStream } from 'node:fs';
 import { createServer } from 'node:net';
 import { networkInterfaces } from 'node:os';
@@ -131,8 +131,29 @@ async function stopPostgres() {
   }
 }
 
+/**
+ * Apps opened from the Mac Dock or a Linux menu don't get the PATH of the
+ * user's shell, so CLIs installed with Homebrew or the Google Cloud installer
+ * aren't found. Ask the login shell once.
+ */
+let shellPath: string | null = null;
+function userPath(): string {
+  if (shellPath !== null) return shellPath;
+  shellPath = process.env.PATH ?? '';
+  if (process.platform !== 'win32') {
+    try {
+      const shell = process.env.SHELL || '/bin/zsh';
+      const out = execFileSync(shell, ['-ilc', 'printf "__PATH__%s" "$PATH"'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const found = out.split('__PATH__').pop()?.trim();
+      if (found) shellPath = [...new Set([...found.split(':'), ...shellPath.split(':')])].filter(Boolean).join(':');
+    } catch { /* keep the default PATH */ }
+  }
+  return shellPath;
+}
+
 async function startServer(databaseUrl: string) {
   const settings = loadSettings(P);
+  const { secretKey } = databaseSecret(P);
   const shared = settings.ALLOW_NETWORK_ACCESS === 'true';
   const host = shared ? '0.0.0.0' : '127.0.0.1';
   const port = await freePort(Number(settings.PORT) || 3210, host);
@@ -150,6 +171,10 @@ async function startServer(databaseUrl: string) {
       ...settings,
       NODE_ENV: 'production',
       NEXT_TELEMETRY_DISABLED: '1',
+      PATH: userPath(),
+      // The app runs on this person's computer: cloud sign-in opens their browser.
+      CONTROLLAYER_DESKTOP: '1',
+      CONTROLLAYER_SECRET_KEY: secretKey,
       PORT: String(port),
       HOSTNAME: host,
       DATABASE_URL: databaseUrl,

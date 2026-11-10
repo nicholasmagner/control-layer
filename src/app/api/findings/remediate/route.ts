@@ -1,7 +1,8 @@
 import { IAMClient, PutUserPolicyCommand } from '@aws-sdk/client-iam';
 import { NextResponse } from 'next/server';
 import { handle, HttpError, requireUser } from '@/auth/session';
-import { awsRegions } from '@/connectors/aws';
+import { awsClientCredentials } from '@/connectors/aws';
+import { awsConnection } from '@/connectors/config';
 import { describeError } from '@/connectors/common';
 import { prisma } from '@/db/prisma';
 import { anchorChain, appendEvidence } from '@/evidence/store';
@@ -37,7 +38,9 @@ export const POST = handle(async (req: Request) => {
   if (!userName) throw new HttpError(400, 'The finding does not record which IAM user it is about. Run a new scan.');
 
   try {
-    await new IAMClient({ region: awsRegions()[0] }).send(new PutUserPolicyCommand({
+    const conn = await awsConnection();
+    if (!conn) throw new Error('AWS is not connected.');
+    await new IAMClient({ region: conn.regions[0], ...awsClientCredentials(conn) }).send(new PutUserPolicyCommand({
       UserName: userName, PolicyName: POLICY_NAME, PolicyDocument: JSON.stringify(REQUIRE_MFA_POLICY),
     }));
   } catch (err) {

@@ -14,8 +14,19 @@ import {
   ListBucketsCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import { fromIni } from '@aws-sdk/credential-providers';
 import type { AwsCredentialUser, AwsInventory } from '@/checks/aws';
 import { CollectResult, section } from './common';
+import type { AwsConnection } from './config';
+
+/** Credentials for every AWS client, from the saved connection. */
+type Creds = { credentials?: ReturnType<typeof fromIni> | { accessKeyId: string; secretAccessKey: string } };
+
+export function awsClientCredentials(conn: AwsConnection): Creds {
+  if (conn.keys) return { credentials: { accessKeyId: conn.keys.accessKeyId, secretAccessKey: conn.keys.secretAccessKey } };
+  if (conn.profile) return { credentials: fromIni({ profile: conn.profile }) };
+  return {}; // standard AWS credential chain (environment, profile, instance role)
+}
 
 /**
  * Read-only AWS collector. Uses the standard AWS credential chain
@@ -23,17 +34,6 @@ import { CollectResult, section } from './common';
  * The AWS managed policy "SecurityAudit" grants everything this needs.
  */
 
-export function awsRegions(): string[] {
-  const list = (process.env.AWS_REGIONS || process.env.AWS_REGION || 'us-east-1')
-    .split(',').map(r => r.trim()).filter(Boolean);
-  return [...new Set(list)];
-}
-
-export function awsConfigured(): boolean {
-  const e = process.env;
-  return !!(e.AWS_ACCESS_KEY_ID || e.AWS_PROFILE || e.AWS_ROLE_ARN || e.AWS_WEB_IDENTITY_TOKEN_FILE ||
-    e.AWS_CONTAINER_CREDENTIALS_FULL_URI || e.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI || e.CONTROLLAYER_AWS_ENABLED === 'true');
-}
 
 const isTrue = (v: string | undefined) => v === 'true';
 const dateOrUndefined = (v: string | undefined) => (v && /^\d{4}-/.test(v) ? v : undefined);
@@ -86,8 +86,8 @@ async function passwordPolicy(iam: IAMClient): Promise<NonNullable<AwsInventory[
   }
 }
 
-async function trails(region: string): Promise<NonNullable<AwsInventory['trails']>> {
-  const ct = new CloudTrailClient({ region });
+async function trails(region: string, c: Creds): Promise<NonNullable<AwsInventory['trails']>> {
+  const ct = new CloudTrailClient({ region, ...c });
   const { trailList = [] } = await ct.send(new DescribeTrailsCommand({ includeShadowTrails: true }));
   const out = [];
   for (const t of trailList) {
@@ -102,12 +102,12 @@ async function trails(region: string): Promise<NonNullable<AwsInventory['trails'
   return out;
 }
 
-async function buckets(defaultRegion: string): Promise<NonNullable<AwsInventory['buckets']>> {
-  const s3 = new S3Client({ region: defaultRegion });
+async function buckets(defaultRegion: string, c: Creds): Promise<NonNullable<AwsInventory['buckets']>> {
+  const s3 = new S3Client({ region: defaultRegion, ...c });
   const { Buckets = [] } = await s3.send(new ListBucketsCommand({}));
   const clients = new Map<string, S3Client>();
   const clientFor = (region: string) => {
-    if (!clients.has(region)) clients.set(region, new S3Client({ region }));
+    if (!clients.has(region)) clients.set(region, new S3Client({ region, ...c }));
     return clients.get(region)!;
   };
 
@@ -136,8 +136,8 @@ async function buckets(defaultRegion: string): Promise<NonNullable<AwsInventory[
   return out;
 }
 
-async function ec2(region: string) {
-  const client = new EC2Client({ region });
+async function ec2(region: string, c: Creds) {
+  const client = new EC2Client({ region, ...c });
   const instances: NonNullable<AwsInventory['instances']> = [];
   for await (const page of paginateDescribeInstances({ client }, {})) {
     for (const r of page.Reservations ?? []) {
@@ -173,8 +173,8 @@ async function ec2(region: string) {
   return { instances, securityGroups, volumes };
 }
 
-async function rds(region: string): Promise<NonNullable<AwsInventory['databases']>> {
-  const client = new RDSClient({ region });
+async function rds(region: string, c: Creds): Promise<NonNullable<AwsInventory['databases']>> {
+  const client = new RDSClient({ region, ...c });
   const out: NonNullable<AwsInventory['databases']> = [];
   for await (const page of paginateDescribeDBInstances({ client }, {})) {
     for (const d of page.DBInstances ?? []) {
@@ -189,10 +189,11 @@ async function rds(region: string): Promise<NonNullable<AwsInventory['databases'
   return out;
 }
 
-export async function collectAws(): Promise<CollectResult<AwsInventory>> {
-  const regions = awsRegions();
+export async function collectAws(conn: AwsConnection): Promise<CollectResult<AwsInventory>> {
+  const regions = conn.regions;
+  const c = awsClientCredentials(conn);
   const home = regions[0];
-  const iam = new IAMClient({ region: home });
+  const iam = new IAMClient({ region: home, ...c });
   const errors: string[] = [];
   const inventory: AwsInventory = { collectedAt: new Date().toISOString(), regions };
 
@@ -200,16 +201,16 @@ export async function collectAws(): Promise<CollectResult<AwsInventory>> {
   const root = inventory.credentialReport?.find(u => u.isRoot);
   inventory.accountId = root?.arn.split(':')[4];
   inventory.passwordPolicy = await section('IAM password policy', errors, () => passwordPolicy(iam));
-  inventory.trails = await section('CloudTrail', errors, async () => (await Promise.all(regions.map(trails))).flat());
-  inventory.buckets = await section('S3', errors, () => buckets(home));
+  inventory.trails = await section('CloudTrail', errors, async () => (await Promise.all(regions.map(r => trails(r, c)))).flat());
+  inventory.buckets = await section('S3', errors, () => buckets(home, c));
 
-  const ec2Data = await section('EC2', errors, async () => Promise.all(regions.map(ec2)));
+  const ec2Data = await section('EC2', errors, async () => Promise.all(regions.map(r => ec2(r, c))));
   if (ec2Data) {
     inventory.instances = ec2Data.flatMap(d => d.instances);
     inventory.securityGroups = ec2Data.flatMap(d => d.securityGroups);
     inventory.volumes = ec2Data.flatMap(d => d.volumes);
   }
-  inventory.databases = await section('RDS', errors, async () => (await Promise.all(regions.map(rds))).flat());
+  inventory.databases = await section('RDS', errors, async () => (await Promise.all(regions.map(r => rds(r, c)))).flat());
 
   // If nothing at all could be read, the credentials are missing or invalid.
   const anything = [inventory.credentialReport, inventory.passwordPolicy, inventory.trails, inventory.buckets, ec2Data, inventory.databases].some(Boolean);

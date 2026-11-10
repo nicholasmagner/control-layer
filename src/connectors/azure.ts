@@ -1,6 +1,17 @@
-import { DefaultAzureCredential } from '@azure/identity';
+import { AzureCliCredential, ClientSecretCredential, DefaultAzureCredential, type TokenCredential } from '@azure/identity';
 import type { AzureInventory } from '@/checks/azure';
 import { CollectResult, section } from './common';
+import type { AzureConnection } from './config';
+
+/** Service principal, Azure CLI sign-in, or the default credential chain. */
+export function azureCredential(conn: Pick<AzureConnection, 'method' | 'servicePrincipal'>): TokenCredential {
+  if (conn.servicePrincipal) {
+    const sp = conn.servicePrincipal;
+    return new ClientSecretCredential(sp.tenantId, sp.clientId, sp.clientSecret);
+  }
+  if (conn.method === 'signin') return new AzureCliCredential();
+  return new DefaultAzureCredential();
+}
 
 /**
  * Read-only Azure collector using DefaultAzureCredential (service principal
@@ -9,20 +20,11 @@ import { CollectResult, section } from './common';
  * on the subscription.
  */
 
-export function azureSubscriptionId(): string | undefined {
-  return process.env.AZURE_SUBSCRIPTION_ID || undefined;
-}
-
-export function azureConfigured(): boolean {
-  return !!azureSubscriptionId();
-}
-
 const ARM = 'https://management.azure.com';
 
 type Json = Record<string, unknown>;
 
-function makeClient() {
-  const credential = new DefaultAzureCredential();
+export function makeArmClient(credential: TokenCredential) {
   let cached: { token: string; expiresOn: number } | null = null;
 
   async function token() {
@@ -55,15 +57,14 @@ function makeClient() {
     return out;
   }
 
-  return { list };
+  return { list, get };
 }
 
 interface ArmResource<P> { id: string; name: string; properties?: P }
 
-export async function collectAzure(): Promise<CollectResult<AzureInventory>> {
-  const subscriptionId = azureSubscriptionId();
-  if (!subscriptionId) throw new Error('AZURE_SUBSCRIPTION_ID is not set.');
-  const { list } = makeClient();
+export async function collectAzure(conn: AzureConnection): Promise<CollectResult<AzureInventory>> {
+  const subscriptionId = conn.subscriptionId;
+  const { list } = makeArmClient(azureCredential(conn));
   const sub = `/subscriptions/${encodeURIComponent(subscriptionId)}`;
   const errors: string[] = [];
   const inventory: AzureInventory = { subscriptionId, collectedAt: new Date().toISOString() };

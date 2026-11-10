@@ -14,7 +14,7 @@ async function main() {
   const args = process.argv.slice(2);
   const bad = args.filter(a => !isProvider(a));
   if (bad.length) throw new Error(`Unknown provider(s): ${bad.join(', ')}. Use ${PROVIDERS.map(p => p.id).join(', ')}.`);
-  const providers: Provider[] = args.length ? (args as Provider[]) : connectorInfo().filter(c => c.configured).map(c => c.provider);
+  const providers: Provider[] = args.length ? (args as Provider[]) : (await connectorInfo()).filter(c => c.configured).map(c => c.provider);
   if (providers.length === 0) {
     console.log('No cloud accounts are configured. See "Cloud accounts" in the app for setup instructions.');
     return;

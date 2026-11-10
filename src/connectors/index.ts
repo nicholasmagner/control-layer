@@ -1,8 +1,10 @@
 import type { Provider } from '@/checks/types';
-import { awsConfigured, awsRegions, collectAws } from './aws';
-import { azureConfigured, azureSubscriptionId, collectAzure } from './azure';
+import { collectAws } from './aws';
+import { collectAzure } from './azure';
+import { findCli, type CliName } from './cli';
 import type { CollectResult } from './common';
-import { collectGcp, gcpConfigured, gcpProjectId } from './gcp';
+import { awsConnection, azureConnection, gcpConnection, isLocalInstall, type Method } from './config';
+import { collectGcp } from './gcp';
 
 export type { CollectResult } from './common';
 
@@ -10,47 +12,94 @@ export interface ConnectorInfo {
   provider: Provider;
   name: string;
   configured: boolean;
-  /** Where the scan will run, e.g. regions or project id. */
+  method: Method | null;
+  /** Who / what is connected, e.g. account id, project, subscription. */
+  label: string | null;
+  /** Where the scan runs, e.g. regions or project id. */
   target: string;
-  setup: { env: string[]; permissions: string; docs: string };
+  cli: { name: CliName; installed: boolean; installUrl: string };
+  setup: { keyHelp: string[]; consoleUrl: string; permissions: string; signinNote: string };
 }
 
-export function connectorInfo(): ConnectorInfo[] {
+const CLI: Record<Provider, { name: CliName; installUrl: string }> = {
+  aws: { name: 'aws', installUrl: 'https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html' },
+  gcp: { name: 'gcloud', installUrl: 'https://cloud.google.com/sdk/docs/install' },
+  azure: { name: 'az', installUrl: 'https://learn.microsoft.com/cli/azure/install-azure-cli' },
+};
+
+export async function connectorInfo(): Promise<ConnectorInfo[]> {
+  const [aws, gcp, azure] = await Promise.all([awsConnection(), gcpConnection(), azureConnection()]);
+  const cli = async (p: Provider) => ({ ...CLI[p], installed: !!(await findCli(CLI[p].name)) });
   return [
     {
-      provider: 'aws', name: 'Amazon Web Services', configured: awsConfigured(),
-      target: `Regions: ${awsRegions().join(', ')}`,
+      provider: 'aws', name: 'Amazon Web Services', configured: !!aws, method: aws?.method ?? null, label: aws?.label ?? null,
+      target: aws ? `Regions: ${aws.regions.join(', ')}` : 'Not connected',
+      cli: await cli('aws'),
       setup: {
-        env: ['AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, AWS_PROFILE, or an attached IAM role', 'AWS_REGIONS=us-east-1,us-west-2 (optional)'],
-        permissions: 'Attach the AWS managed policy "SecurityAudit" (read-only) to the scanning user or role.',
-        docs: 'https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_create_for-user.html',
+        keyHelp: [
+          'In the AWS console, open IAM > Users > Create user (e.g. "controllayer-scanner"). Do not give it console access.',
+          'Choose "Attach policies directly" and attach the AWS managed policy SecurityAudit (read-only).',
+          'Open the new user > Security credentials > Create access key > "Application running outside AWS".',
+          'Copy the Access key ID and Secret access key here.',
+        ],
+        consoleUrl: 'https://console.aws.amazon.com/iam/home#/users/create',
+        permissions: 'Read-only: the AWS managed policy SecurityAudit.',
+        signinNote: isLocalInstall()
+          ? 'Your browser opens the AWS sign-in page. Sign in as usual; sessions last up to 12 hours, so scheduled scans need an access key instead. The account needs the SignInLocalDevelopmentAccess and SecurityAudit policies.'
+          : 'ControlLayer shows a sign-in link. Open it, sign in, and paste the code it shows back here. Sessions last up to 12 hours.',
       },
     },
     {
-      provider: 'gcp', name: 'Google Cloud', configured: gcpConfigured(),
-      target: gcpProjectId() ? `Project: ${gcpProjectId()}` : 'No project set',
+      provider: 'gcp', name: 'Google Cloud', configured: !!gcp, method: gcp?.method ?? null, label: gcp?.label ?? null,
+      target: gcp ? `Project: ${gcp.projectId}` : 'Not connected',
+      cli: await cli('gcp'),
       setup: {
-        env: ['GCP_PROJECT_ID=your-project', 'GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json (or gcloud / attached service account)'],
-        permissions: 'Grant the service account "Viewer" and "Security Reviewer" on the project.',
-        docs: 'https://cloud.google.com/docs/authentication/application-default-credentials',
+        keyHelp: [
+          'In the Google Cloud console, open IAM & Admin > Service Accounts > Create service account (e.g. "controllayer-scanner").',
+          'Grant it the roles Viewer and Security Reviewer on the project.',
+          'Open the service account > Keys > Add key > Create new key > JSON. A key file downloads.',
+          'Upload that file here.',
+        ],
+        consoleUrl: 'https://console.cloud.google.com/iam-admin/serviceaccounts/create',
+        permissions: 'Read-only: Viewer + Security Reviewer on the project.',
+        signinNote: isLocalInstall()
+          ? 'Your browser opens the Google sign-in page. Sign in with an account that can view the project.'
+          : 'ControlLayer shows a sign-in link. Open it, sign in, and paste the code it shows back here.',
       },
     },
     {
-      provider: 'azure', name: 'Microsoft Azure', configured: azureConfigured(),
-      target: azureSubscriptionId() ? `Subscription: ${azureSubscriptionId()}` : 'No subscription set',
+      provider: 'azure', name: 'Microsoft Azure', configured: !!azure, method: azure?.method ?? null, label: azure?.label ?? null,
+      target: azure ? `Subscription: ${azure.subscriptionId}` : 'Not connected',
+      cli: await cli('azure'),
       setup: {
-        env: ['AZURE_SUBSCRIPTION_ID=...', 'AZURE_TENANT_ID + AZURE_CLIENT_ID + AZURE_CLIENT_SECRET (or managed identity / az login)'],
-        permissions: 'Assign "Reader" and "Security Reader" on the subscription to the service principal.',
-        docs: 'https://learn.microsoft.com/azure/developer/javascript/sdk/authentication/overview',
+        keyHelp: [
+          'In the Azure portal, open Microsoft Entra ID > App registrations > New registration (e.g. "controllayer-scanner").',
+          'In the app, open Certificates & secrets > New client secret, and copy the secret value.',
+          'In your subscription, open Access control (IAM) > Add role assignment and give the app Reader and Security Reader.',
+          'Enter the tenant ID, application (client) ID, secret and subscription ID here.',
+        ],
+        consoleUrl: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+        permissions: 'Read-only: Reader + Security Reader on the subscription.',
+        signinNote: isLocalInstall()
+          ? 'Your browser (or the Windows sign-in window) opens. Sign in with an account that has Reader and Security Reader on the subscription.'
+          : 'ControlLayer shows a link and a code. Open the link, enter the code, and sign in.',
       },
     },
   ];
 }
 
 export async function collect(provider: Provider): Promise<CollectResult<unknown>> {
-  switch (provider) {
-    case 'aws': return collectAws();
-    case 'gcp': return collectGcp();
-    case 'azure': return collectAzure();
+  if (provider === 'aws') {
+    const c = await awsConnection();
+    if (!c) throw new Error('AWS is not connected. Open Cloud Accounts and click Connect.');
+    return collectAws(c);
   }
+  if (provider === 'gcp') {
+    const c = await gcpConnection();
+    if (!c) throw new Error('Google Cloud is not connected. Open Cloud Accounts and click Connect.');
+    return collectGcp(c);
+  }
+  const c = await azureConnection();
+  if (!c) throw new Error('Azure is not connected. Open Cloud Accounts and click Connect.');
+  return collectAzure(c);
 }

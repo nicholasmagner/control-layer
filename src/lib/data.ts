@@ -3,7 +3,9 @@ import { readinessScore, type ControlStatus } from '@/assessment/status';
 import { assistantEnabled } from '@/assistant/engine';
 import { can, type CurrentUser } from '@/auth/session';
 import { ALL_CHECKS } from '@/checks';
-import { connectorInfo } from '@/connectors';
+import { connectorInfo, type ConnectorInfo } from '@/connectors';
+import { isLocalInstall } from '@/connectors/config';
+import { secretsAvailable } from '@/lib/secrets';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
 import { remediationEnabled } from '@/lib/remediation';
@@ -89,12 +91,12 @@ export interface AppData {
   evidence: EvidenceView[];
   evidenceTotal: number;
   events: { id: string; action: string; actor: string; decision: string; resource: string | null; reason: string | null; timestamp: string }[];
-  connectors: (ReturnType<typeof connectorInfo>[number] & {
+  connectors: (ConnectorInfo & {
     lastRun: { status: string; startedAt: string; finishedAt: string | null; error: string | null; isSample: boolean } | null;
     checkCount: number;
   })[];
   users: { id: string; name: string; email: string; role: string; lastLoginAt: string | null; createdAt: string }[];
-  features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null; snapshotIntervalDays: number };
+  features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null; snapshotIntervalDays: number; localInstall: boolean; canStoreKeys: boolean };
   timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
 }
 
@@ -189,7 +191,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
     })),
     evidenceTotal,
     events: events.map(e => ({ id: e.id, action: e.action, actor: e.actor, decision: e.decision, resource: e.resource, reason: e.reason, timestamp: e.timestamp.toISOString() })),
-    connectors: connectorInfo().map(c => {
+    connectors: (await connectorInfo()).map(c => {
       const last = runs.find(r => r.provider === c.provider);
       return {
         ...c,
@@ -198,7 +200,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       };
     }),
     users: users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, lastLoginAt: iso(u.lastLoginAt), createdAt: u.createdAt.toISOString() })),
-    features: { assistant: assistantEnabled(), remediation: remediationEnabled(), hasSampleData: sampleRuns > 0, scanIntervalHours: scanIntervalHours(), snapshotIntervalDays: snapshotIntervalDays() },
+    features: { assistant: assistantEnabled(), remediation: remediationEnabled(), hasSampleData: sampleRuns > 0, scanIntervalHours: scanIntervalHours(), snapshotIntervalDays: snapshotIntervalDays(), localInstall: isLocalInstall(), canStoreKeys: secretsAvailable() },
     timestamps: {
       enabled: !!tsaUrl(), authority: tsaUrl() ? new URL(tsaUrl()!).host : null, count: anchorCount,
       latest: latestAnchor ? { genTime: latestAnchor.genTime.toISOString(), seq: latestAnchor.seq } : null,
