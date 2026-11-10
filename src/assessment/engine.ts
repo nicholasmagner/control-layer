@@ -31,6 +31,13 @@ export async function withCrosswalk(controlIds: string[]): Promise<string[]> {
   return [...new Set([...controlIds, ...targets.map(t => t.id)])];
 }
 
+/** Control row ids for keys like "SOC2:CC9.2" (unknown keys are skipped). */
+export async function controlIdsForKeys(keys: string[]): Promise<string[]> {
+  const pairs = keys.map(k => { const i = k.indexOf(':'); return { framework: k.slice(0, i), controlId: k.slice(i + 1) }; }).filter(p => p.framework && p.controlId);
+  if (!pairs.length) return [];
+  return (await prisma.control.findMany({ where: { OR: pairs }, select: { id: true } })).map(r => r.id);
+}
+
 /** Links existing evidence to crosswalked controls (after new frameworks are added). Idempotent. */
 export async function backfillCrosswalkLinks() {
   const soc2 = await prisma.control.findMany({ where: { framework: 'SOC2' }, select: { id: true, controlId: true } });

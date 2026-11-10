@@ -449,3 +449,95 @@ model QuestionnaireItem {
 
   @@index([questionnaireId, position])
 }
+
+// ---------------------------------------------------------------------------
+// Vendor risk management.
+// ---------------------------------------------------------------------------
+
+model Vendor {
+  id               String    @id @default(uuid())
+  name             String
+  website          String?
+  category         String    @default("Other")
+  description      String?
+  // Email or name of the internal owner.
+  owner            String?
+  // 'active' | 'offboarded'
+  status           String    @default("active")
+  // Data the vendor can access: customer_data, personal_data, health_data,
+  // payment_data, source_code, credentials, employee_data, internal_data.
+  dataAccess       Json      @default("[]")
+  businessCritical Boolean   @default(false)
+  usesAi           Boolean   @default(false)
+  // true / false / null (unknown): may the vendor train AI on your data?
+  aiTrainsOnData   Boolean?
+  // Processes customer personal data on your behalf (listed as a subprocessor).
+  subprocessor     Boolean   @default(false)
+  dataLocation     String?
+  // 'critical' | 'high' | 'medium' | 'low' (computed unless overridden)
+  tier             String    @default("low")
+  tierOverride     String?
+  dpaSigned        Boolean   @default(false)
+  baaSigned        Boolean   @default(false)
+  contractEnd      DateTime?
+  trustUrl         String?
+  notes            String?   @db.Text
+  lastReviewedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  documents      VendorDocument[]
+  reviews        VendorReview[]
+  questionnaires VendorQuestionnaire[]
+}
+
+model VendorDocument {
+  id         String    @id @default(uuid())
+  vendorId   String
+  // 'soc2' | 'iso27001' | 'pentest' | 'questionnaire' | 'contract' | 'dpa' | 'baa' | 'other'
+  kind       String
+  title      String
+  fileName   String
+  mimeType   String
+  fileSize   Int
+  fileData   Bytes
+  validUntil DateTime?
+  uploadedBy String
+  createdAt  DateTime  @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorReview {
+  id           String   @id @default(uuid())
+  vendorId     String
+  reviewer     String
+  // 'approved' | 'approved_with_conditions' | 'rejected'
+  outcome      String
+  // 'low' | 'medium' | 'high'
+  residualRisk String
+  checklist    Json
+  notes        String?  @db.Text
+  evidenceId   String?
+  reviewedAt   DateTime @default(now())
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model VendorQuestionnaire {
+  id          String    @id @default(uuid())
+  vendorId    String
+  tokenHash   String    @unique
+  sentTo      String
+  // 'sent' | 'completed' | 'revoked'
+  status      String    @default("sent")
+  answers     Json?
+  respondent  String?
+  score       Int?
+  sentBy      String
+  sentAt      DateTime  @default(now())
+  completedAt DateTime?
+  expiresAt   DateTime
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}

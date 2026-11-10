@@ -68,8 +68,7 @@ export async function loadFacts(): Promise<Facts> {
   const done = signoff.reduce((n, p) => n + p.versions[0].acknowledgments.filter(a => activeIds.has(a.personId)).length, 0);
 
   const vendors = await optional(async () => {
-    const rows = await (prisma as unknown as { vendor: { findMany: (a: unknown) => Promise<{ tier: string; lastReviewedAt: Date | null; status: string }[]> } })
-      .vendor.findMany({ where: { status: 'active' }, select: { tier: true, lastReviewedAt: true, status: true } });
+    const rows = await prisma.vendor.findMany({ where: { status: 'active' }, select: { tier: true, lastReviewedAt: true, status: true } });
     const reviewed = rows.filter(v => v.lastReviewedAt && Date.now() - v.lastReviewedAt.getTime() < 400 * 86_400_000).length;
     return { total: rows.length, reviewedPct: rows.length ? Math.round((reviewed / rows.length) * 100) : null, critical: rows.filter(v => v.tier === 'critical' || v.tier === 'high').length };
   }, { total: 0, reviewedPct: null, critical: 0 });

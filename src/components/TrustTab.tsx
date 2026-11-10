@@ -214,6 +214,10 @@ function TrustSettings({ config, frameworks, onSaved }: { config: TrustConfig; f
           <span>Show security practices verified by your latest scans <span className="block text-xs text-slate-500">Only practices whose checks all pass are shown, e.g. &ldquo;Multi-factor authentication&rdquo; or &ldquo;Encryption at rest&rdquo;. Details and findings are never shown.</span></span>
         </label>
         <label className="flex items-start gap-3 text-sm text-slate-300">
+          <input type="checkbox" className="mt-1" checked={f.showSubprocessors} onChange={e => setF({ ...f, showSubprocessors: e.target.checked })} />
+          <span>List your subprocessors <span className="block text-xs text-slate-500">Active vendors marked as subprocessors under Vendors, with their purpose and data location. Customers and GDPR expect this list.</span></span>
+        </label>
+        <label className="flex items-start gap-3 text-sm text-slate-300">
           <input type="checkbox" className="mt-1" checked={f.showPolicies} onChange={e => setF({ ...f, showPolicies: e.target.checked })} />
           <span>List the titles of your published policies <span className="block text-xs text-slate-500">The policies themselves stay private unless you add them as documents.</span></span>
         </label>

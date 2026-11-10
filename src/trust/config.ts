@@ -15,6 +15,8 @@ export interface TrustConfig {
   showPractices: boolean;
   /** List published policy titles (the documents themselves stay private). */
   showPolicies: boolean;
+  /** List vendors marked as subprocessors. */
+  showSubprocessors: boolean;
   /** Days an approved access link stays valid. */
   accessDays: number;
   ndaText: string;
@@ -30,6 +32,7 @@ export const DEFAULT_TRUST: TrustConfig = {
   frameworks: [],
   showPractices: true,
   showPolicies: true,
+  showSubprocessors: true,
   accessDays: 30,
   ndaText: DEFAULT_NDA,
 };
@@ -65,6 +68,7 @@ export function mergeTrustConfig(current: TrustConfig, body: Record<string, unkn
   }
   if ('showPractices' in body) next.showPractices = body.showPractices === true;
   if ('showPolicies' in body) next.showPolicies = body.showPolicies === true;
+  if ('showSubprocessors' in body) next.showSubprocessors = body.showSubprocessors === true;
   if ('accessDays' in body) {
     const n = Number(body.accessDays);
     if (!Number.isInteger(n) || n < 1 || n > 365) throw new HttpError(400, 'Access links can last 1 to 365 days.');

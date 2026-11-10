@@ -95,6 +95,21 @@ export default function TrustPublic({ data }: { data: Data }) {
           </section>
         )}
 
+        {data.subprocessors.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Subprocessors</h2>
+            <p className="mt-1 text-sm text-slate-500">Third parties that process customer data on our behalf.</p>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wider text-slate-500"><tr className="border-b border-slate-800"><th className="px-5 py-3">Name</th><th className="px-5 py-3">Purpose</th><th className="px-5 py-3">Location</th></tr></thead>
+                <tbody className="divide-y divide-slate-800">
+                  {data.subprocessors.map(s => <tr key={s.name}><td className="px-5 py-3 text-slate-100">{s.name}</td><td className="px-5 py-3 text-slate-400">{s.purpose}</td><td className="px-5 py-3 text-slate-400">{s.location ?? '—'}</td></tr>)}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         {data.faq.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Frequently asked security questions</h2>

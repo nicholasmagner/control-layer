@@ -78,6 +78,9 @@ export async function trustPageData() {
     prisma.checkRun.count({ where: { isSample: true } }),
     prisma.checkRun.findFirst({ where: { isSample: false, status: { in: ['success', 'partial'] } }, orderBy: { startedAt: 'desc' }, select: { startedAt: true } }),
   ]);
+  const subprocessors = config.showSubprocessors
+    ? await prisma.vendor.findMany({ where: { status: 'active', subprocessor: true }, orderBy: { name: 'asc' }, select: { name: true, description: true, category: true, dataLocation: true } })
+    : [];
   const faq = await prisma.answerLibraryEntry.findMany({ where: { isPublic: true }, orderBy: { question: 'asc' }, take: 50, select: { question: true, answer: true } });
   const practices = config.showPractices && sampleRuns === 0 && lastRun ? verifiedPractices(await latestCheckOutcomes()) : [];
   return {
@@ -92,6 +95,7 @@ export async function trustPageData() {
     policies: policies.map(p => ({ title: p.title, updatedAt: p.versions[0]?.publishedAt.toISOString() ?? null })),
     documents,
     faq,
+    subprocessors: subprocessors.map(x => ({ name: x.name, purpose: x.description || x.category, location: x.dataLocation })),
   };
 }
 
