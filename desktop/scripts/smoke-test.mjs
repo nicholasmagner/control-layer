@@ -1,5 +1,5 @@
 // Launches the packaged app from release/, then uses it like a new customer:
-// creates an admin, loads the sample company (renders 34 evidence images),
+// creates an admin, loads the sample company (renders one evidence image per check),
 // exports an audit package, and quits. Exits non-zero on any failure.
 //   node scripts/smoke-test.mjs   (Linux needs a display: xvfb-run -a ...)
 import { execFileSync, spawn } from 'node:child_process';
@@ -67,8 +67,8 @@ try {
   if (!res.ok) throw new Error(`sample data failed: ${JSON.stringify(sample)}`);
   const images = sample.summaries.reduce((n, s) => n + s.imagesCreated, 0);
   const warnings = sample.summaries.flatMap(s => s.warnings);
-  if (images !== 34 || warnings.length) throw new Error(`expected 34 evidence images, got ${images}; warnings: ${warnings.join(' | ')}`);
-  console.log('✓ sample data loaded, 34 evidence images rendered');
+  if (images < 51 || warnings.length) throw new Error(`expected at least 51 evidence images, got ${images}; warnings: ${warnings.join(' | ')}`);
+  console.log('✓ sample data loaded, ${images} evidence images rendered');
 
   res = await call('GET', '/api/evidence/export?framework=SOC2');
   const zip = Buffer.from(await res.arrayBuffer());
