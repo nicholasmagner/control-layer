@@ -8,7 +8,7 @@
     "name": "ControlLayer contributors",
     "email": "noreply@controllayer.dev"
   },
-  "homepage": "https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst",
+  "homepage": "https://github.com/nicholasmagner/control-layer",
   "private": true,
   "main": "dist/main.js",
   "scripts": {

@@ -8,11 +8,11 @@
 
 Continuous monitoring, policies, vendor and risk management, access reviews, security questionnaires and audit-ready evidence for SOC 2, ISO 27001, HIPAA and more. Self-hosted, read-only and free.
 
-[![CI](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/actions/workflows/ci.yml)
+[![CI](https://github.com/nicholasmagner/control-layer/actions/workflows/ci.yml/badge.svg)](https://github.com/nicholasmagner/control-layer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0ea5e9.svg)](./LICENSE)
-[![Desktop app](https://img.shields.io/badge/desktop-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-0ea5e9.svg)](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest)
+[![Desktop app](https://img.shields.io/badge/desktop-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-0ea5e9.svg)](https://github.com/nicholasmagner/control-layer/releases/latest)
 
-[**Download**](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest) · [**Quick start**](#get-started) · [**Features**](#features) · [**Frameworks**](#frameworks) · [**Docs**](#documentation)
+[**Download**](https://github.com/nicholasmagner/control-layer/releases/latest) · [**Quick start**](#get-started) · [**Features**](#features) · [**Frameworks**](#frameworks) · [**Docs**](#documentation)
 
 <br>
 
@@ -135,12 +135,12 @@ Every connection is read-only. Missing permissions are reported as "not evaluate
 
 ### Desktop app (easiest)
 
-Download the installer for **macOS, Windows or Linux** from the [latest release](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest), install it and open it. Everything is included, database too, and your data stays on your computer. Load the sample company to explore every feature before connecting anything.
+Download the installer for **macOS, Windows or Linux** from the [latest release](https://github.com/nicholasmagner/control-layer/releases/latest), install it and open it. Everything is included, database too, and your data stays on your computer. Load the sample company to explore every feature before connecting anything.
 
 ### Docker (for your team and your auditor)
 
 ```bash
-git clone https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst.git controllayer
+git clone https://github.com/nicholasmagner/control-layer.git controllayer
 cd controllayer
 cp .env.example .env          # set ORGANIZATION_NAME and CONTROLLAYER_SECRET_KEY
 docker compose up -d --build

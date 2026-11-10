@@ -7,7 +7,7 @@ PostgreSQL database and keeps all data in your user folder.
 ## Install
 
 Download the installer for your computer from the
-[latest release](https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst/releases/latest):
+[latest release](https://github.com/nicholasmagner/control-layer/releases/latest):
 
 | Computer | File | How to install |
 | :--- | :--- | :--- |

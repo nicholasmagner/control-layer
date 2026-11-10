@@ -13,7 +13,7 @@ artifactName: ControlLayer-${version}-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: nicholasmagner
-  repo: ControlLayer-SOC-2-GRC-Analyst
+  repo: control-layer
   releaseType: release
 
 directories:

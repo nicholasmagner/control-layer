@@ -285,7 +285,7 @@ function buildMenu() {
     { role: 'editMenu' },
     { label: 'View', submenu: [{ role: 'reload' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
     { role: 'windowMenu' },
-    { role: 'help', submenu: [{ label: 'Documentation', click: () => shell.openExternal('https://github.com/nicholasmagner/ControlLayer-SOC-2-GRC-Analyst#readme') }] },
+    { role: 'help', submenu: [{ label: 'Documentation', click: () => shell.openExternal('https://github.com/nicholasmagner/control-layer#readme') }] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
