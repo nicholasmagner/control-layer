@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Bot, Building, UserCheck, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, ClipboardList, LogOut, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, Bot, Building, ShieldAlert, UserCheck, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, ClipboardList, LogOut, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { AppData } from '@/lib/data';
@@ -15,13 +15,14 @@ import FindingsTab from './FindingsTab';
 import PeopleTab from './PeopleTab';
 import PoliciesTab from './PoliciesTab';
 import QuestionnairesTab from './QuestionnairesTab';
+import RisksTab from './RisksTab';
 import SettingsTab from './SettingsTab';
 import TrustTab from './TrustTab';
 import VendorsTab from './VendorsTab';
 import UploadEvidenceModal from './UploadEvidenceModal';
 import { api, Button, cx, FRAMEWORK_GROUPS } from './ui';
 
-export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'devices' | 'vendors' | 'access' | 'evidence' | 'questionnaires' | 'trust' | 'connectors' | 'assistant' | 'settings';
+export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'devices' | 'vendors' | 'access' | 'risks' | 'evidence' | 'questionnaires' | 'trust' | 'connectors' | 'assistant' | 'settings';
 
 export interface TabProps {
   data: AppData;
@@ -33,7 +34,7 @@ export interface TabProps {
   focusControl?: string;
 }
 
-const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'policies', 'people', 'devices', 'vendors', 'access', 'evidence', 'questionnaires', 'trust', 'connectors', 'assistant', 'settings'];
+const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'policies', 'people', 'devices', 'vendors', 'access', 'risks', 'evidence', 'questionnaires', 'trust', 'connectors', 'assistant', 'settings'];
 
 export default function AppShell({ data, initialTab, initialFramework }: { data: AppData; initialTab?: string; initialFramework?: string }) {
   const router = useRouter();
@@ -65,6 +66,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
     { id: 'policies', label: 'Policies', icon: FileText, badge: data.policies.policies.filter(p => p.overdue).length, section: 'Program' },
     { id: 'people', label: 'People', icon: Users },
     { id: 'devices', label: 'Devices', icon: MonitorSmartphone, badge: data.devices.filter(d => d.failing.length).length },
+    { id: 'risks', label: 'Risks', icon: ShieldAlert, badge: data.risks.risks.filter(r => r.signals.some(x => x.id === 'no_plan' || x.id === 'acceptance_expired')).length },
     { id: 'access', label: 'Access reviews', icon: UserCheck, badge: data.access.nextDue && new Date(data.access.nextDue) < new Date() ? 1 : 0 },
     { id: 'vendors', label: 'Vendors', icon: Building, badge: data.vendors.vendors.filter(v => v.status === 'active' && v.signals.some(x => x.level === 'high')).length },
     { id: 'questionnaires', label: 'Questionnaires', icon: ClipboardList, badge: data.questionnaires.filter(q => q.status !== 'completed' && q.dueDate && new Date(q.dueDate) < new Date()).length, section: 'Customers & auditors' },
@@ -159,6 +161,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
           {tab === 'devices' && <DevicesTab {...props} />}
           {tab === 'vendors' && <VendorsTab {...props} />}
           {tab === 'access' && <AccessReviewsTab {...props} />}
+          {tab === 'risks' && <RisksTab {...props} />}
           {tab === 'evidence' && <EvidenceTab {...props} />}
           {tab === 'questionnaires' && <QuestionnairesTab {...props} />}
           {tab === 'trust' && <TrustTab {...props} />}

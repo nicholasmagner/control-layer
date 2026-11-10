@@ -73,10 +73,9 @@ export async function loadFacts(): Promise<Facts> {
     return { total: rows.length, reviewedPct: rows.length ? Math.round((reviewed / rows.length) * 100) : null, critical: rows.filter(v => v.tier === 'critical' || v.tier === 'high').length };
   }, { total: 0, reviewedPct: null, critical: 0 });
   const risks = await optional(async () => {
-    const r = prisma as unknown as { risk: { count: (a: unknown) => Promise<number>; findFirst: (a: unknown) => Promise<{ reviewedAt: Date | null } | null> } };
-    const open = await r.risk.count({ where: { status: { not: 'closed' } } });
-    const last = await r.risk.findFirst({ where: { reviewedAt: { not: null } }, orderBy: { reviewedAt: 'desc' }, select: { reviewedAt: true } });
-    return { open, lastAssessed: last?.reviewedAt ?? null };
+    const open = await prisma.risk.count({ where: { status: { not: 'closed' } } });
+    const last = await prisma.riskAssessment.findFirst({ orderBy: { completedAt: 'desc' }, select: { completedAt: true } });
+    return { open, lastAssessed: last?.completedAt ?? null };
   }, { open: 0, lastAssessed: null });
   const accessReviews = await optional(async () => {
     const done = await prisma.accessReview.findMany({ where: { status: 'completed' }, orderBy: { completedAt: 'desc' }, select: { completedAt: true } });

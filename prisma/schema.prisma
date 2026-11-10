@@ -608,3 +608,47 @@ model AccessReviewItem {
 
   @@index([reviewId])
 }
+
+// ---------------------------------------------------------------------------
+// Risk register.
+// ---------------------------------------------------------------------------
+
+model Risk {
+  id                 String    @id @default(uuid())
+  title              String
+  description        String?   @db.Text
+  category           String    @default("Security")
+  owner              String?
+  // 1-5 each; score = likelihood x impact
+  likelihood         Int       @default(3)
+  impact             Int       @default(3)
+  // 'mitigate' | 'accept' | 'transfer' | 'avoid'
+  treatment          String    @default("mitigate")
+  treatmentPlan      String?   @db.Text
+  residualLikelihood Int?
+  residualImpact     Int?
+  // 'open' | 'treating' | 'accepted' | 'closed'
+  status             String    @default("open")
+  // Control keys like "SOC2:CC6.1" that reduce this risk.
+  controls           Json      @default("[]")
+  // Check ids whose failures make this risk more likely.
+  checks             Json      @default("[]")
+  // Library key it was created from, if any.
+  libraryKey         String?
+  acceptedBy         String?
+  acceptedReason     String?   @db.Text
+  acceptedUntil      DateTime?
+  dueDate            DateTime?
+  reviewedAt         DateTime?
+  createdBy          String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model RiskAssessment {
+  id          String   @id @default(uuid())
+  completedBy String
+  completedAt DateTime @default(now())
+  summary     Json
+  evidenceId  String?
+}
