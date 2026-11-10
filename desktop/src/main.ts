@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, shell, utilityProcess, type UtilityProcess } from 'electron';
 import EmbeddedPostgres from 'embedded-postgres';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync, type WriteStream } from 'node:fs';
 import { createServer } from 'node:net';
 import { networkInterfaces } from 'node:os';
@@ -107,8 +107,15 @@ async function startPostgres(port: number) {
     log('db', 'Stopping a database left running by a previous session');
     await run(pg_ctl, ['stop', '-w', '-m', 'fast', '-D', P.postgres]);
   } catch { /* not running */ }
-  const out = await run(pg_ctl, ['start', '-w', '-t', '120', '-D', P.postgres, '-l', path.join(P.logs, 'postgres-server.log'), '-o', `-p ${port}`]);
-  log('db', out);
+  // The server process inherits pg_ctl's output handles and keeps them open,
+  // so wait for pg_ctl to exit rather than for its output to close.
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(pg_ctl, ['start', '-w', '-t', '120', '-D', P.postgres, '-l', path.join(P.logs, 'postgres-server.log'), '-o', `-p ${port}`],
+      { stdio: 'ignore', windowsHide: true });
+    child.once('error', reject);
+    child.once('exit', code => (code === 0 ? resolve() : reject(new Error(`pg_ctl start exited with code ${code}; see postgres-server.log`))));
+  });
+  log('db', `Database started with pg_ctl on port ${port}`);
 }
 
 async function stopPostgres() {
