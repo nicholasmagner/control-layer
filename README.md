@@ -2,7 +2,7 @@
 
 **Open-source continuous compliance and audit evidence for small teams.**
 
-ControlLayer scans your AWS, Google Cloud and Azure accounts, your Google Workspace, Microsoft 365 or on-premises Active Directory, your GitHub organization, and your own servers and laptops. It maps what it finds to SOC 2, CMMC and PCI DSS controls, gives you ready-made policies your team signs, and collects the evidence your auditor will ask for. When the audit starts, you hand over a single package organized control by control, or give your auditor a read-only login. A public Trust Center shows customers how you protect their data.
+ControlLayer scans your AWS, Google Cloud and Azure accounts, your Google Workspace, Microsoft 365 or on-premises Active Directory, your GitHub organization, and your own servers and laptops. It maps what it finds to SOC 2, ISO 27001, HIPAA, GDPR, CMMC, PCI DSS and the AI frameworks ISO 42001 and NIST AI RMF, gives you ready-made policies your team signs, runs your vendor, risk and access review programs, answers customer security questionnaires from live data, and collects the evidence your auditor will ask for. When the audit starts, you hand over a single package organized control by control, or give your auditor a read-only login. A public Trust Center shows customers how you protect their data.
 
 It is built for companies without a compliance team: self-hosted, read-only by default, and free.
 
@@ -13,10 +13,14 @@ It is built for companies without a compliance team: self-hosted, read-only by d
 - **Continuous checks.** 66 read-only checks across AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, Active Directory, GitHub, and servers and laptops: MFA, inactive users, key rotation, public storage, open SSH/RDP, encryption, audit logging, backups, code review, secret scanning, Dependabot and more.
 - **On-premises support.** A small read-only script for Linux, Windows and macOS reports each server's and laptop's disk encryption, firewall, updates, malware protection, screen lock, SSH/Remote Desktop settings, logging, password rules and local accounts, wherever the machine runs. Active Directory is checked over LDAP for password policy, stale accounts, Domain Admins and password exceptions.
 - **Offboarding checks.** Mark people as having left, and ControlLayer flags any Google Workspace, Microsoft 365, Active Directory or GitHub account they can still use.
-- **Policies with employee sign-off.** 14 policy templates written for small companies (information security, acceptable use, access control, incident response, business continuity and more), already mapped to SOC 2, CMMC and PCI DSS controls. Edit, publish, and send each person a personal link to read and accept them; no account needed. Every published version is saved as evidence, and the audit package includes who accepted which version and when.
+- **Eight frameworks, one set of evidence.** SOC 2, ISO 27001, HIPAA, GDPR, CMMC, PCI DSS, ISO 42001 and NIST AI RMF. Checks, policies and evidence are mapped once (with a crosswalk from SOC 2) and count toward every framework they support. Choose the ones you are working toward in Settings.
+- **Security questionnaires.** Upload a customer's questionnaire (Excel or CSV) and ControlLayer answers it from your live data: passing checks, published policies, sign-off, vendors, risks and Trust Center status. Each answer shows its confidence and sources; approve, edit, and download the customer's own spreadsheet with the answers filled in. Edits are remembered in your answer library.
+- **Vendor risk management.** A vendor inventory with automatic risk tiers from the data each vendor can access, a catalog of 72 common vendors, document tracking with expiry dates (SOC 2 reports, DPAs, BAAs), AI training checks for AI vendors, recorded reviews saved as evidence, a security questionnaire link vendors answer without an account, and a public subprocessor list.
+- **Access reviews.** Quarterly reviews built from the real accounts in Google Workspace, Microsoft 365, Active Directory, GitHub, AWS, Google Cloud and servers (or any system from a CSV). Accounts of people who left, unknown, unused and admin accounts are flagged; decisions are saved as evidence, and later scans confirm removals happened.
+- **Risk register.** A library of 30 common risks (including AI risks), suggestions from your failing checks and vendors, a heat map before and after controls, live status of the controls that treat each risk, formal risk acceptance, and a yearly risk assessment saved as evidence.
+- **Policies with employee sign-off.** 17 policy templates written for small companies (information security, acceptable use, access control, incident response, business continuity, privacy, responsible AI, AI acceptable use and more), already mapped to framework controls. Edit, publish, and send each person a personal link to read and accept them; no account needed. Every published version is saved as evidence, and the audit package includes who accepted which version and when.
 - **People directory.** Add employees and contractors by hand, from a CSV, or straight from Google Workspace or Microsoft 365.
 - **Trust Center.** A public page with your compliance status, the security practices your latest scans verify, and your policy list. Share your SOC 2 report and other documents with people who accept your confidentiality terms, through time-limited links you approve.
-- **Framework mapping.** Each check is mapped to every control it supports, so one scan updates SOC 2, CMMC and PCI DSS at once.
 - **Evidence collection for auditors.** Every scan result is stored as dated evidence. Upload policies, screenshots, access reviews and other documents and link them to controls. Each control lists what auditors typically request.
 - **Automatic evidence images.** Auditors often ask for screenshots showing a control is in place. Each scan produces screenshot-style images of the results (system, account, date and time in UTC, every resource checked, pass/fail, who collected it), filed under the right controls. A new image is made the first time, whenever a result changes, and on a schedule (default every 30 days), so a Type II audit period has a dated series. Images are labeled as generated from cloud API data, and each one shows the fingerprint of the raw data record it came from.
 - **Audit evidence package.** One click produces a ZIP for a framework and audit period: a control status summary, findings (including accepted risks), the activity log, an evidence index, and a folder per control with its evidence.
@@ -29,13 +33,16 @@ It is built for companies without a compliance team: self-hosted, read-only by d
 
 | Framework | Coverage | Controls | Checked automatically | Covered by policy templates |
 | :--- | :--- | :--- | :--- | :--- |
-| **SOC 2** (Trust Services Criteria 2017, rev. 2022) | Security, Availability, Confidentiality | 38 | 12 | 36 |
-| **CMMC 2.0 Level 1** | All 17 practices | 17 | 11 | 16 |
+| **SOC 2** (Trust Services Criteria 2017, rev. 2022) | Security, Availability, Confidentiality | 38 | 13 | 36 |
+| **ISO/IEC 27001:2022** | All 93 Annex A controls | 93 | 20 | 65 |
+| **HIPAA Security Rule** | Administrative, physical and technical safeguards | 35 | 10 | 29 |
+| **GDPR** | Preview: key obligations | 16 | 1 | 14 |
+| **CMMC 2.0 Level 1** | All 17 practices | 17 | 12 | 16 |
 | **PCI DSS v4.0** | Preview: core requirements | 25 | 17 | 22 |
+| **ISO/IEC 42001:2023** (AI management) | All 38 Annex A controls | 38 | – | 23 |
+| **NIST AI RMF 1.0** | All 19 categories | 19 | – | 13 |
 
-Controls not covered by an automated check (training, vendor reviews, physical security) are met by publishing the matching policy and uploading current evidence. Each control has a review window (for example 365 days for policies, 90 days for access reviews) after which it asks for fresh evidence. Mark any control you are not including in scope as *Not Applicable* with a reason, which is included in the audit package.
-
-HIPAA and GDPR are on the roadmap.
+Controls not covered by an automated check are met by publishing the matching policy and by the records ControlLayer keeps for you: vendor reviews, access reviews, the risk assessment, policy sign-off, and uploaded evidence. ISO 27001 mapping is a practical crosswalk for evidence reuse, not an official equivalence; certification also needs the management system clauses (scope, Statement of Applicability, internal audit, management review). Each control has a review window (for example 365 days for policies, 90 days for access reviews) after which it asks for fresh evidence. Mark any control you are not including in scope as *Not Applicable* with a reason, which is included in the audit package.
 
 ## Screenshots
 
@@ -109,10 +116,11 @@ Set `SCAN_INTERVAL_HOURS=24` to scan every configured account daily while the se
 1. **Scope.** Pick your framework in the sidebar and mark controls outside your audit scope as Not Applicable, with a reason.
 2. **Fix.** Work through **Findings**, starting with High severity. Accept risks you won't fix, with a reason.
 3. **Policies.** Under **Policies**, add the templates, adjust them to how you work, and publish. Add your team under **People** and send everyone their sign-off link. Mark people as having left when they go, so the offboarding checks can confirm their access is gone.
-4. **Document.** For each control still showing *Needs Evidence*, upload what the control lists under "What auditors usually ask for". One document can support several controls and frameworks.
-5. **Assign owners** to controls so everyone knows who keeps evidence current.
-6. **Invite your auditor** under **Settings** with the *Auditor* role. They can review everything and download packages, but cannot change anything.
-7. **Export.** Under **Evidence & Audits**, choose the framework and audit period and download the package. It includes each published policy version and who accepted it. Record the *chain head* printed in its `README.txt`; a later package whose chain still contains it shows that earlier evidence was not altered.
+4. **Run the program.** Add your vendors and record reviews for the high-risk ones; add risks from the library and complete the risk assessment; run a quarterly access review. Each of these is saved as dated evidence.
+5. **Document.** For each control still showing *Needs Evidence*, upload what the control lists under "What auditors usually ask for". One document can support several controls and frameworks.
+6. **Assign owners** to controls so everyone knows who keeps evidence current.
+7. **Invite your auditor** under **Settings** with the *Auditor* role. They can review everything and download packages, but cannot change anything.
+8. **Export.** Under **Evidence & Audits**, choose the framework and audit period and download the package. It includes each published policy version and who accepted it. Record the *chain head* printed in its `README.txt`; a later package whose chain still contains it shows that earlier evidence was not altered.
 
 ## Running locally for development
 
@@ -168,6 +176,9 @@ cloud APIs ──► connectors (read-only)  ──► normalized inventory
 - `src/connectors/`: AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, GitHub and Active Directory collectors, browser sign-in, plus the sample company.
 - `src/devices/` and `assets/agent/`: the device agent scripts, the report format and the report endpoint.
 - `src/policies/`: policy templates, publishing, sign-off links and the safe Markdown renderer.
+- `src/questionnaires/`: the answer bank (written from live data), question matching and spreadsheet import/export.
+- `src/vendors/`, `src/access/`, `src/risks/`: vendor risk, access reviews and the risk register; each saves its records as evidence.
+- `src/frameworks/crosswalk.ts`: how SOC 2 evidence also counts toward ISO 27001, HIPAA and GDPR.
 - `src/trust/`: Trust Center settings, verified practices and access links.
 - `src/checks/`: checks over the normalized inventory, each mapped to framework controls. They don't call cloud APIs, so they are unit-tested directly.
 - `src/scan/`: runs a scan, records results, opens and closes findings, stores evidence.
@@ -180,7 +191,7 @@ Add an entry to the provider's file in `src/checks/` (`aws.ts`, `gcp.ts`, `azure
 
 ### Adding a framework
 
-Create `src/frameworks/<name>.ts` following `soc2.ts`, register it in `src/frameworks/index.ts`, and add its control IDs to the relevant checks. The control table syncs on startup.
+Create `src/frameworks/<name>.ts` following `soc2.ts`, register it in `src/frameworks/index.ts` and in `FRAMEWORK_GROUPS` (`src/components/ui.tsx`), and either add its control IDs to the relevant checks or extend the crosswalk in `src/frameworks/crosswalk.ts`. The control table syncs on startup, and existing evidence is linked to crosswalked controls automatically.
 
 ## Security notes
 
@@ -198,7 +209,7 @@ Please report vulnerabilities privately; see [SECURITY.md](./SECURITY.md).
 
 - Browser extension: one-click screenshots of any admin page (Azure, Google Workspace, GitHub, Okta) stamped with URL, time and user, uploaded to ControlLayer
 - Optional real AWS console screenshots via read-only console federation
-- HIPAA Security Rule and GDPR catalogs; full PCI DSS and ISO 27001
+- Full PCI DSS and GDPR catalogs; EU AI Act obligations
 - More connectors: Okta, GitLab, Jira, HR systems, device management (MDM)
 - Security awareness training tracking
 - Email reminders for policy sign-off and reviews

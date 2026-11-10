@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, ChevronRight, Circle, Cloud, FlaskConical } from 'lucide-react';
+import { Building, CheckCircle2, ChevronRight, Circle, ClipboardList, Cloud, FileText, FlaskConical, MonitorSmartphone, ShieldAlert, UserCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { TabProps } from './AppShell';
 import { api, Button, Card, cx, ErrorText, formatDate, PageHeader, PROVIDER_LABEL, SeverityBadge, StatusBadge } from './ui';
@@ -80,6 +80,8 @@ export default function DashboardTab({ data, frameworkId, navigate, refresh, ope
           </div>
         </Card>
       )}
+
+      <ProgramHealth data={data} navigate={navigate} />
 
       {data.settings.frameworks.length > 1 && (
         <Card className="p-6">
@@ -201,5 +203,49 @@ export default function DashboardTab({ data, frameworkId, navigate, refresh, ope
         </Card>
       </div>
     </div>
+  );
+}
+
+function ProgramHealth({ data, navigate }: Pick<TabProps, 'data' | 'navigate'>) {
+  const [now] = useState(() => Date.now());
+  const policiesOverdue = data.policies.policies.filter(p => p.overdue).length;
+  const unpublished = data.policies.policies.filter(p => !p.latest).length;
+  const signoff = data.policies.people.filter(p => p.active && p.pending.length).length;
+  const vendorIssues = data.vendors.vendors.filter(v => v.status === 'active' && v.signals.some(s => s.level === 'high')).length;
+  const accessDue = data.access.nextDue ? new Date(data.access.nextDue).getTime() : null;
+  const riskAction = data.risks.risks.filter(r => r.signals.some(s => s.id === 'no_plan' || s.id === 'acceptance_expired')).length;
+  const riskDue = data.risks.nextAssessmentDue ? new Date(data.risks.nextAssessmentDue).getTime() : null;
+  const qOpen = data.questionnaires.filter(q => q.status !== 'completed');
+  const devices = data.devices.filter(d => d.failing.length && !d.isSample).length;
+  const items = [
+    { icon: FileText, label: 'Policies', tab: 'policies' as const, bad: policiesOverdue + unpublished > 0 || signoff > 0,
+      text: !data.policies.policies.length ? 'Add policy templates' : policiesOverdue ? `${policiesOverdue} overdue for review` : unpublished ? `${unpublished} not published` : signoff ? `${signoff} people still to sign` : 'Published and signed' },
+    { icon: ShieldAlert, label: 'Risks', tab: 'risks' as const, bad: !data.risks.risks.length || riskAction > 0 || (riskDue !== null && riskDue < now) || !data.risks.lastAssessment,
+      text: !data.risks.risks.length ? 'Start your risk register' : riskAction ? `${riskAction} need a plan or decision` : !data.risks.lastAssessment ? 'Complete your first risk assessment' : riskDue && riskDue < now ? 'Yearly assessment overdue' : `${data.risks.risks.filter(r => r.status !== 'closed').length} risks tracked` },
+    { icon: UserCheck, label: 'Access reviews', tab: 'access' as const, bad: accessDue === null || accessDue < now,
+      text: accessDue === null ? 'No review completed yet' : accessDue < now ? 'Quarterly review overdue' : `Next due ${formatDate(data.access.nextDue)}` },
+    { icon: Building, label: 'Vendors', tab: 'vendors' as const, bad: !data.vendors.vendors.length || vendorIssues > 0,
+      text: !data.vendors.vendors.length ? 'List the vendors you use' : vendorIssues ? `${vendorIssues} need attention` : `${data.vendors.vendors.filter(v => v.status === 'active').length} vendors in good shape` },
+    { icon: ClipboardList, label: 'Questionnaires', tab: 'questionnaires' as const, bad: qOpen.some(q => q.dueDate && new Date(q.dueDate).getTime() < now),
+      text: qOpen.length ? `${qOpen.length} in progress` : 'Answer customer questionnaires in minutes' },
+    { icon: MonitorSmartphone, label: 'Devices', tab: 'devices' as const, bad: devices > 0,
+      text: data.devices.filter(d => !d.isSample).length ? (devices ? `${devices} with issues` : 'All devices pass') : 'Add servers and laptops' },
+  ];
+  return (
+    <Card className="p-6">
+      <h3 className="mb-4 font-semibold text-slate-100">Program health</h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map(i => (
+          <button key={i.label} onClick={() => navigate(i.tab)} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-left hover:border-slate-700">
+            <i.icon size={18} className={i.bad ? 'text-amber-400' : 'text-emerald-400'} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-slate-200">{i.label}</span>
+              <span className={cx('block truncate text-xs', i.bad ? 'text-amber-300' : 'text-slate-500')}>{i.text}</span>
+            </span>
+            <ChevronRight size={15} className="text-slate-600" />
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }
