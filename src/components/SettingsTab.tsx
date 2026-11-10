@@ -1,9 +1,9 @@
 'use client';
 
-import { KeyRound, Trash2, UserPlus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { Bot, Building2, Check, KeyRound, Trash2, UserPlus } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, ErrorText, Field, formatDate, inputBase, inputCls, PageHeader } from './ui';
+import { api, Button, Card, cx, ErrorText, Field, formatDate, inputBase, inputCls, PageHeader } from './ui';
 
 const ROLE_HELP: Record<string, string> = {
   admin: 'Everything, including users and settings',
@@ -15,19 +15,220 @@ export default function SettingsTab({ data, refresh }: TabProps) {
   const isAdmin = data.user.role === 'admin';
   return (
     <div className="space-y-8">
-      <PageHeader title="Settings" subtitle={`Workspace: ${data.organization}`} />
+      <PageHeader title="Settings" subtitle={isAdmin ? 'Changes apply immediately for everyone in this workspace.' : 'Only admins can change workspace settings.'} />
+      <WorkspaceSettings data={data} refresh={refresh} />
+      <AssistantSettings data={data} refresh={refresh} />
       {isAdmin && <Users data={data} refresh={refresh} />}
       <ChangePassword userId={data.user.id} />
-      <Card className="p-6 text-sm text-slate-400">
-        <h3 className="mb-2 font-semibold text-slate-100">Server configuration</h3>
-        <ul className="space-y-1">
-          <li>Organization name: <span className="text-slate-200">{data.organization}</span> <span className="text-slate-600">(ORGANIZATION_NAME)</span></li>
-          <li>Automatic scans: <span className="text-slate-200">{data.features.scanIntervalHours ? `every ${data.features.scanIntervalHours} hour(s)` : 'off'}</span> <span className="text-slate-600">(SCAN_INTERVAL_HOURS)</span></li>
-          <li>One-click AWS remediation: <span className="text-slate-200">{data.features.remediation ? 'on' : 'off'}</span> <span className="text-slate-600">(ENABLE_AWS_REMEDIATION)</span></li>
-          <li>Assistant: <span className="text-slate-200">{data.features.assistant ? 'on' : 'off'}</span> <span className="text-slate-600">(ASSISTANT_API_KEY)</span></li>
-        </ul>
-      </Card>
     </div>
+  );
+}
+
+const SCAN_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'Off (scan when you click Scan now)' },
+  { value: 6, label: 'Every 6 hours' },
+  { value: 12, label: 'Every 12 hours' },
+  { value: 24, label: 'Every day' },
+  { value: 168, label: 'Every week' },
+];
+
+function useSave(refresh: () => void) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  async function save(body: Record<string, unknown>) {
+    setBusy(true);
+    setError('');
+    setSaved(false);
+    try {
+      await api('/api/settings', { method: 'PUT', json: body });
+      setSaved(true);
+      refresh();
+      setTimeout(() => setSaved(false), 2500);
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { busy, error, saved, save };
+}
+
+function SavedNote({ show }: { show: boolean }) {
+  return show ? <span className="flex items-center gap-1 text-sm text-emerald-400"><Check size={14} /> Saved</span> : null;
+}
+
+function FromEnv({ source }: { source: string }) {
+  return source === 'environment' ? <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-400">from server settings</span> : null;
+}
+
+function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)}
+      className={cx('relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50', checked ? 'bg-sky-600' : 'bg-slate-700')}>
+      <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform', checked ? 'translate-x-5' : 'translate-x-0.5')} />
+    </button>
+  );
+}
+
+function WorkspaceSettings({ data, refresh }: Pick<TabProps, 'data' | 'refresh'>) {
+  const s = data.settings;
+  const canEdit = data.user.role === 'admin';
+  const [form, setForm] = useState({
+    organizationName: s.organizationName,
+    scanIntervalHours: s.scanIntervalHours ?? 0,
+    snapshotIntervalDays: s.snapshotIntervalDays,
+    timestampsEnabled: s.timestampsEnabled,
+    timestampAuthorityUrl: s.timestampAuthorityUrl,
+    remediationEnabled: s.remediationEnabled,
+  });
+  const { busy, error, saved, save } = useSave(refresh);
+  const dirty = form.organizationName !== s.organizationName || form.scanIntervalHours !== (s.scanIntervalHours ?? 0)
+    || form.snapshotIntervalDays !== s.snapshotIntervalDays || form.timestampsEnabled !== s.timestampsEnabled
+    || form.timestampAuthorityUrl !== s.timestampAuthorityUrl || form.remediationEnabled !== s.remediationEnabled;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (form.remediationEnabled && !s.remediationEnabled
+      && !confirm('Turning on the one-click AWS fix lets admins change IAM policies in your AWS account from ControlLayer. Continue?')) return;
+    // Only send what changed, so untouched settings keep following the server's defaults.
+    const initial: Record<string, unknown> = { organizationName: s.organizationName, scanIntervalHours: s.scanIntervalHours ?? 0, snapshotIntervalDays: s.snapshotIntervalDays, timestampsEnabled: s.timestampsEnabled, timestampAuthorityUrl: s.timestampAuthorityUrl, remediationEnabled: s.remediationEnabled };
+    const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== initial[k]));
+    if (changed.timestampAuthorityUrl !== undefined || changed.timestampsEnabled !== undefined) {
+      changed.timestampsEnabled = form.timestampsEnabled;
+      changed.timestampAuthorityUrl = form.timestampAuthorityUrl;
+    }
+    await save(changed);
+  }
+
+  return (
+    <Card className="p-6">
+      <form onSubmit={submit} className="space-y-6">
+        <div className="flex items-center gap-2"><Building2 size={18} className="text-sky-400" /><h3 className="font-semibold text-slate-100">Workspace</h3></div>
+
+        <Field label="Organization name" hint="Shown in the app and on every audit evidence package.">
+          <input className={inputCls} value={form.organizationName} maxLength={120} disabled={!canEdit} required
+            onChange={e => setForm({ ...form, organizationName: e.target.value })} />
+        </Field>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="Automatic scans" hint="Scans every connected cloud account on this schedule while ControlLayer is running.">
+            <select className={inputCls} value={form.scanIntervalHours} disabled={!canEdit}
+              onChange={e => setForm({ ...form, scanIntervalHours: Number(e.target.value) })}>
+              {SCAN_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Fresh evidence image every (days)" hint="When nothing changes. A new image is also made whenever a result changes.">
+            <input className={inputCls} type="number" min={1} max={365} value={form.snapshotIntervalDays} disabled={!canEdit}
+              onChange={e => setForm({ ...form, snapshotIntervalDays: Number(e.target.value) })} />
+          </Field>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-slate-800 p-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-medium text-slate-200">Independent timestamps<FromEnv source={s.sources.timestampAuthorityUrl} /></p>
+              <p className="text-xs text-slate-500">After each scan or upload, a public timestamp service certifies the evidence fingerprint. Only the fingerprint is sent, never your evidence.</p>
+            </div>
+            <Toggle label="Independent timestamps" checked={form.timestampsEnabled} disabled={!canEdit} onChange={v => setForm({ ...form, timestampsEnabled: v })} />
+          </div>
+          {form.timestampsEnabled && (
+            <Field label="Timestamp authority (RFC 3161)">
+              <input className={inputCls} value={form.timestampAuthorityUrl} disabled={!canEdit} onChange={e => setForm({ ...form, timestampAuthorityUrl: e.target.value })} />
+            </Field>
+          )}
+        </div>
+
+        <div className="flex items-start gap-4 rounded-xl border border-slate-800 p-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-200">One-click AWS fix<FromEnv source={s.sources.remediationEnabled} /></p>
+            <p className="text-xs text-slate-500">Lets admins apply a &quot;require MFA&quot; policy to an AWS user from a finding. This is the only feature that changes a cloud account, and it needs the iam:PutUserPolicy permission.</p>
+          </div>
+          <Toggle label="One-click AWS fix" checked={form.remediationEnabled} disabled={!canEdit} onChange={v => setForm({ ...form, remediationEnabled: v })} />
+        </div>
+
+        {canEdit && (
+          <div className="flex items-center justify-end gap-3">
+            <SavedNote show={saved} />
+            <ErrorText>{error}</ErrorText>
+            <Button type="submit" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save changes'}</Button>
+          </div>
+        )}
+      </form>
+    </Card>
+  );
+}
+
+function AssistantSettings({ data, refresh }: Pick<TabProps, 'data' | 'refresh'>) {
+  const a = data.settings.assistant;
+  const canEdit = data.user.role === 'admin';
+  const [key, setKey] = useState('');
+  const [model, setModel] = useState(a.model ?? '');
+  const [models, setModels] = useState<string[]>([]);
+  const { busy, error, saved, save } = useSave(refresh);
+
+  useEffect(() => {
+    if (!canEdit || !a.configured) return;
+    api<{ models: string[] }>('/api/settings').then(r => setModels(r.models)).catch(() => undefined);
+  }, [canEdit, a.configured, a.keyHint]);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const body: Record<string, unknown> = { assistantModel: model };
+    if (key.trim()) body.assistantApiKey = key.trim();
+    if (await save(body)) setKey('');
+  }
+
+  return (
+    <Card className="p-6">
+      <form onSubmit={submit} className="space-y-5">
+        <div className="flex items-center gap-2">
+          <Bot size={18} className="text-sky-400" />
+          <h3 className="font-semibold text-slate-100">Assistant</h3>
+          <span className={cx('ml-2 rounded-full border px-2 py-0.5 text-xs font-semibold', a.configured ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400' : 'border-slate-700 bg-slate-800 text-slate-400')}>
+            {a.configured ? 'On' : 'Off'}
+          </span>
+        </div>
+        <p className="text-sm text-slate-400">
+          Optional. Explains why a control passes or fails, suggests next steps and drafts audit narrative, using only your ControlLayer data.
+          It can only read and answer; pass/fail always comes from the checks. Uses an Anthropic API key
+          (<a className="text-sky-400 hover:text-sky-300" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">get one here</a>).
+        </p>
+
+        {canEdit ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={a.configured ? `API key (saved: ${a.keyHint})` : 'API key'} hint={a.configured ? 'Paste a new key to replace the saved one.' : 'Checked before saving, then stored encrypted.'}>
+                <input className={inputCls} type="password" autoComplete="off" spellCheck={false} placeholder={a.configured ? 'Leave empty to keep the saved key' : 'sk-ant-…'}
+                  value={key} onChange={e => setKey(e.target.value)} disabled={!data.features.canStoreKeys} />
+              </Field>
+              <Field label="Model (optional)" hint="Leave on automatic to use a recommended model your key can access.">
+                <select className={inputCls} value={model} onChange={e => setModel(e.target.value)} disabled={!a.configured && !key}>
+                  <option value="">Automatic</option>
+                  {model && !models.includes(model) && <option value={model}>{model}</option>}
+                  {models.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </Field>
+            </div>
+            {!data.features.canStoreKeys && <ErrorText>This server cannot store keys safely because CONTROLLAYER_SECRET_KEY is not set.</ErrorText>}
+            <div className="flex items-center justify-end gap-3">
+              <SavedNote show={saved} />
+              <ErrorText>{error}</ErrorText>
+              {a.configured && (
+                <Button type="button" variant="ghost" disabled={busy} onClick={() => { if (confirm('Remove the API key and turn the assistant off?')) save({ assistantApiKey: null }); }}>
+                  Remove key
+                </Button>
+              )}
+              <Button type="submit" disabled={busy || (!key.trim() && model === (a.model ?? ''))}>{busy ? 'Checking key…' : a.configured ? 'Save' : 'Check key and turn on'}</Button>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-500">{a.configured ? 'The assistant is on.' : 'Ask an admin to add an API key.'}</p>
+        )}
+      </form>
+    </Card>
   );
 }
 

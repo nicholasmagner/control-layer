@@ -1,8 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { getSettings } from '@/lib/settings';
 
 /**
  * Optional assistant that explains control status and drafts audit narrative.
- * It is disabled unless ASSISTANT_API_KEY is set.
+ * It is off until an admin adds an API key in Settings.
  *
  * Guardrails:
  * - No tools are passed to the model, so it can only return text. It cannot
@@ -18,34 +19,42 @@ const MAX_CONTEXT_ITEMS = 20;
 const MAX_USER_MESSAGE_LENGTH = 4000;
 const SECRET_KEY_PATTERN = /secret|password|token|apikey|api_key|credential|private_?key/i;
 
-export function assistantEnabled(): boolean {
-  return !!process.env.ASSISTANT_API_KEY;
-}
+let client: { key: string; anthropic: Anthropic } | null = null;
+let resolvedModel: { key: string; model: string } | null = null;
 
-let client: Anthropic | null = null;
-let resolvedModel: string | null = null;
-
-function getClient(): Anthropic | null {
-  if (!process.env.ASSISTANT_API_KEY) return null;
-  if (!client) client = new Anthropic({ apiKey: process.env.ASSISTANT_API_KEY });
-  return client;
+/** Client for the API key saved in Settings (or ASSISTANT_API_KEY). */
+async function getClient(): Promise<{ anthropic: Anthropic; model: string | null } | null> {
+  const s = await getSettings();
+  if (!s.assistantApiKey) return null;
+  if (client?.key !== s.assistantApiKey) client = { key: s.assistantApiKey, anthropic: new Anthropic({ apiKey: s.assistantApiKey }) };
+  return { anthropic: client.anthropic, model: s.assistantModel };
 }
 
 /**
- * Uses ASSISTANT_MODEL when set; otherwise asks the API which models the key
- * can use and picks the newest mid-tier one (falling back to the newest).
+ * The chosen model, or else the newest mid-tier model the key can use
+ * (falling back to the newest).
  */
-async function getModel(anthropic: Anthropic): Promise<string> {
-  if (process.env.ASSISTANT_MODEL) return process.env.ASSISTANT_MODEL;
-  if (resolvedModel) return resolvedModel;
+async function pickModel(anthropic: Anthropic, key: string): Promise<string> {
+  if (resolvedModel?.key === key) return resolvedModel.model;
   const ids: string[] = [];
   for await (const m of anthropic.models.list()) {
     ids.push(m.id);
     if (ids.length >= 50) break;
   }
   if (ids.length === 0) throw new Error('No models are available for this API key.');
-  resolvedModel = ids.find(id => id.includes('sonnet')) ?? ids[0];
-  return resolvedModel;
+  resolvedModel = { key, model: ids.find(id => id.includes('sonnet')) ?? ids[0] };
+  return resolvedModel.model;
+}
+
+/** Checks an API key before it is saved. Returns the models it can use. */
+export async function testAssistantKey(apiKey: string): Promise<string[]> {
+  const anthropic = new Anthropic({ apiKey, maxRetries: 0, timeout: 20_000 });
+  const ids: string[] = [];
+  for await (const m of anthropic.models.list()) {
+    ids.push(m.id);
+    if (ids.length >= 50) break;
+  }
+  return ids;
 }
 
 /**
@@ -79,15 +88,16 @@ Rules, in priority order:
 5. Reply in plain prose without Markdown headings or bold text. Keep answers concise and practical for a small team.`;
 
 function notConfigured(reason: string): string {
-  return `The assistant is not configured (${reason}). Set ASSISTANT_API_KEY to enable it. Meanwhile, the Controls tab shows what each control needs and the Findings tab lists what to fix first.`;
+  return `The assistant is not configured (${reason}). An admin can add an API key in Settings. Meanwhile, the Controls tab shows what each control needs and the Findings tab lists what to fix first.`;
 }
 
 async function complete(messages: Anthropic.MessageParam[]): Promise<string> {
-  const anthropic = getClient();
-  if (!anthropic) return notConfigured('no API key');
+  const c = await getClient();
+  if (!c) return notConfigured('no API key');
+  const { anthropic, model } = c;
   try {
     const response = await anthropic.messages.create({
-      model: await getModel(anthropic),
+      model: model || (await pickModel(anthropic, client!.key)),
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       messages,
@@ -108,7 +118,7 @@ async function complete(messages: Anthropic.MessageParam[]): Promise<string> {
 export class Assistant {
   /** Explains a control's status using only the data passed in. */
   static async generateExplanation(control: unknown, checks: unknown[], evidence: unknown[]): Promise<string> {
-    if (!getClient()) return notConfigured('no API key');
+    if (!(await getClient())) return notConfigured('no API key');
     return complete([{
       role: 'user',
       content: [
@@ -122,7 +132,7 @@ export class Assistant {
 
   /** Multi-turn chat grounded in a snapshot of workspace data. */
   static async chat(history: { role: 'user' | 'assistant'; content: string }[], context: unknown): Promise<string> {
-    if (!getClient()) return notConfigured('no API key');
+    if (!(await getClient())) return notConfigured('no API key');
     const trimmed = history.slice(-MAX_CONTEXT_ITEMS).map(m => ({ role: m.role, content: m.content.slice(0, MAX_USER_MESSAGE_LENGTH) }));
     if (trimmed.length === 0) return notConfigured('no message provided');
     return complete([

@@ -10,7 +10,7 @@ import { canonicalJson, sha256Hex } from '@/evidence/hash';
 import { anchorChain, appendEvidence } from '@/evidence/store';
 import { FRAMEWORKS } from '@/frameworks';
 import { logEvent } from '@/lib/events';
-import { organizationName, snapshotIntervalDays } from '@/lib/settings';
+import { getSettings } from '@/lib/settings';
 import { APP_VERSION } from '@/lib/version';
 
 export interface ScanSummary {
@@ -55,7 +55,7 @@ async function imageReason(provider: Provider, checkId: string, results: Resourc
   });
   if (!last) return { label: 'First evidence image for this check', resultsKey: key };
   if ((last.content as { resultsKey?: string } | null)?.resultsKey !== key) return { label: 'Result changed since the last image', resultsKey: key };
-  const days = snapshotIntervalDays();
+  const days = (await getSettings()).snapshotIntervalDays;
   if (Date.now() - last.collectedAt.getTime() >= days * 86_400_000) return { label: `Scheduled image (every ${days} days)`, resultsKey: key };
   return null;
 }
@@ -175,7 +175,7 @@ export async function runScan(provider: Provider, opts: { actor: string; sample?
       if (reason) {
         const capturedAt = new Date();
         const png = await renderEvidenceCard({
-          organization: organizationName(),
+          organization: (await getSettings()).organizationName,
           provider: providerName(provider),
           account: collected.account,
           checkTitle: check.title,

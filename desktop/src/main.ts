@@ -270,7 +270,7 @@ async function restart() {
 function buildMenu() {
   const isMac = process.platform === 'darwin';
   const appMenu: Electron.MenuItemConstructorOptions[] = [
-    { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => shell.openPath(P.settings) },
+    { label: 'Network Settings…', click: () => shell.openPath(P.settings) },
     { label: 'Restart ControlLayer', click: () => restart() },
     { type: 'separator' },
     { label: 'Open in Web Browser', click: () => shell.openExternal(appUrl) },

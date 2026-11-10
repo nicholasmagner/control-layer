@@ -1,6 +1,5 @@
 import { latestCheckOutcomes } from '@/assessment/engine';
 import { readinessScore, type ControlStatus } from '@/assessment/status';
-import { assistantEnabled } from '@/assistant/engine';
 import { can, type CurrentUser } from '@/auth/session';
 import { ALL_CHECKS } from '@/checks';
 import { connectorInfo, type ConnectorInfo } from '@/connectors';
@@ -8,9 +7,7 @@ import { isLocalInstall } from '@/connectors/config';
 import { secretsAvailable } from '@/lib/secrets';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
-import { remediationEnabled } from '@/lib/remediation';
-import { organizationName, scanIntervalHours, snapshotIntervalDays } from '@/lib/settings';
-import { tsaUrl } from '@/evidence/timestamp';
+import { settingsView, type SettingsView } from '@/lib/settings';
 
 /** Everything the app screens render, already serializable. */
 
@@ -98,11 +95,13 @@ export interface AppData {
   users: { id: string; name: string; email: string; role: string; lastLoginAt: string | null; createdAt: string }[];
   features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null; snapshotIntervalDays: number; localInstall: boolean; canStoreKeys: boolean };
   timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
+  settings: SettingsView;
 }
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 export async function getAppData(user: CurrentUser): Promise<AppData> {
+  const settings = await settingsView();
   const [controls, outcomes, findings, evidence, evidenceTotal, events, runs, users, sampleRuns, anchorCount, latestAnchor] = await Promise.all([
     prisma.control.findMany({
       include: {
@@ -173,7 +172,7 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
 
   return {
     user,
-    organization: organizationName(),
+    organization: settings.organizationName,
     frameworks,
     findings: findings.map(f => {
       const details = (f.details ?? {}) as { resourceName?: string; mitigation?: string };
@@ -200,10 +199,11 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       };
     }),
     users: users.map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role, lastLoginAt: iso(u.lastLoginAt), createdAt: u.createdAt.toISOString() })),
-    features: { assistant: assistantEnabled(), remediation: remediationEnabled(), hasSampleData: sampleRuns > 0, scanIntervalHours: scanIntervalHours(), snapshotIntervalDays: snapshotIntervalDays(), localInstall: isLocalInstall(), canStoreKeys: secretsAvailable() },
+    features: { assistant: settings.assistant.configured, remediation: settings.remediationEnabled, hasSampleData: sampleRuns > 0, scanIntervalHours: settings.scanIntervalHours, snapshotIntervalDays: settings.snapshotIntervalDays, localInstall: isLocalInstall(), canStoreKeys: secretsAvailable() },
     timestamps: {
-      enabled: !!tsaUrl(), authority: tsaUrl() ? new URL(tsaUrl()!).host : null, count: anchorCount,
+      enabled: settings.timestampsEnabled, authority: settings.timestampsEnabled ? new URL(settings.timestampAuthorityUrl).host : null, count: anchorCount,
       latest: latestAnchor ? { genTime: latestAnchor.genTime.toISOString(), seq: latestAnchor.seq } : null,
     },
+    settings,
   };
 }

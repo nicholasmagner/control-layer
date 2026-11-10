@@ -12,13 +12,6 @@ import * as pkijs from 'pkijs';
  */
 
 const SHA256_OID = '2.16.840.1.101.3.4.2.1';
-export const DEFAULT_TSA_URL = 'https://freetsa.org/tsr';
-
-export function tsaUrl(): string | null {
-  const v = process.env.TIMESTAMP_AUTHORITY_URL?.trim();
-  if (v === 'off' || v === 'none' || v === 'false') return null;
-  return v || DEFAULT_TSA_URL;
-}
 
 const toArrayBuffer = (u: Uint8Array): ArrayBuffer => u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength) as ArrayBuffer;
 const hex = (buf: ArrayBuffer | Uint8Array) => Buffer.from(buf instanceof Uint8Array ? buf : new Uint8Array(buf)).toString('hex');

@@ -43,15 +43,14 @@ shown. Keys are stored encrypted on this computer.
 
 ### Settings
 
-**ControlLayer > Settings…** (Ctrl+, / Cmd+,) opens a small text file for the
-organization name, automatic scan schedule and network sharing. Save it, then
-choose **ControlLayer > Restart ControlLayer**.
+Open **Settings** in the app to set your organization name, automatic scan
+schedule, the optional assistant's API key and more. Changes apply immediately.
 
 ### Sharing with your team or auditor
 
 The desktop app is only reachable from your own computer by default. To let
 teammates or your auditor sign in from their computers on the same network,
-set `ALLOW_NETWORK_ACCESS=true` in Settings and restart. The address to share
+choose **ControlLayer > Network Settings…**, set `ALLOW_NETWORK_ACCESS=true`, save, and choose **ControlLayer > Restart ControlLayer**. The address to share
 appears in the ControlLayer menu. For access from anywhere, run ControlLayer
 on a server with Docker instead (see the main README).
 

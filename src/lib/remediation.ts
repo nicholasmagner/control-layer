@@ -23,6 +23,3 @@ export const REQUIRE_MFA_POLICY = {
   ],
 };
 
-export function remediationEnabled() {
-  return process.env.ENABLE_AWS_REMEDIATION === 'true';
-}

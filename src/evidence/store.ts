@@ -2,7 +2,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/db/prisma';
 import { logEvent } from '@/lib/events';
 import { chainHash, contentHash, verifyChain, type ChainVerification } from './hash';
-import { inspectToken, requestTimestamp, tsaUrl } from './timestamp';
+import { getSettings } from '@/lib/settings';
+import { inspectToken, requestTimestamp } from './timestamp';
 
 // Arbitrary constant used as the Postgres advisory lock key that serializes
 // appends to the evidence chain.
@@ -70,7 +71,7 @@ export async function appendEvidence(input: NewEvidence) {
  * Failures are logged and never block evidence collection.
  */
 export async function anchorChain(actor: string) {
-  const url = tsaUrl();
+  const url = (await getSettings()).timestampAuthorityUrl;
   if (!url) return null;
   const head = await prisma.evidenceArtifact.findFirst({
     where: { chainHash: { not: null } },

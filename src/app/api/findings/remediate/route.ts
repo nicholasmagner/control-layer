@@ -8,7 +8,8 @@ import { prisma } from '@/db/prisma';
 import { anchorChain, appendEvidence } from '@/evidence/store';
 import { logEvent } from '@/lib/events';
 import { readJson } from '@/lib/http';
-import { POLICY_NAME, remediationEnabled, REQUIRE_MFA_POLICY } from '@/lib/remediation';
+import { POLICY_NAME, REQUIRE_MFA_POLICY } from '@/lib/remediation';
+import { getSettings } from '@/lib/settings';
 
 /**
  * Optional one-click mitigation for "Console users have MFA" findings.
@@ -24,8 +25,8 @@ import { POLICY_NAME, remediationEnabled, REQUIRE_MFA_POLICY } from '@/lib/remed
 
 export const POST = handle(async (req: Request) => {
   const user = await requireUser(req, 'admin');
-  if (!remediationEnabled()) {
-    throw new HttpError(403, 'One-click remediation is turned off. Set ENABLE_AWS_REMEDIATION=true to allow ControlLayer to change IAM policies.');
+  if (!(await getSettings()).remediationEnabled) {
+    throw new HttpError(403, 'One-click remediation is turned off. An admin can turn it on in Settings.');
   }
   const { findingId } = await readJson<{ findingId?: string }>(req);
   const finding = findingId ? await prisma.finding.findUnique({ where: { id: findingId } }) : null;

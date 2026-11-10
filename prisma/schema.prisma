@@ -230,3 +230,16 @@ model ConnectorConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ---------------------------------------------------------------------------
+// Workspace settings edited in the app (Settings). Values are JSON strings;
+// secret values (the assistant API key) are encrypted. Environment variables
+// are only used when a setting has not been saved here.
+// ---------------------------------------------------------------------------
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedBy String
+  updatedAt DateTime @updatedAt
+}

@@ -117,19 +117,16 @@ npm run dev                       # http://localhost:3000
 
 ## Configuration
 
-All settings are environment variables; see [`.env.example`](./.env.example).
+Admins change workspace settings in the app under **Settings**: organization name, automatic scan schedule, how often evidence images refresh, independent timestamps, the one-click AWS fix, and the optional assistant's API key. Changes apply immediately. Cloud accounts are connected under **Cloud Accounts**.
+
+Server installs also read these environment variables (see [`.env.example`](./.env.example)). A value saved in the app takes priority.
 
 | Variable | Purpose |
 | :--- | :--- |
 | `DATABASE_URL` | PostgreSQL connection string (required) |
-| `ORGANIZATION_NAME` | Shown in the app and on audit packages |
-| `SCAN_INTERVAL_HOURS` | Automatic scans while the server runs |
-| `SNAPSHOT_INTERVAL_DAYS` | How often an unchanged check gets a fresh evidence image (default 30) |
-| `TIMESTAMP_AUTHORITY_URL` | RFC 3161 Time-Stamp Authority (default `https://freetsa.org/tsr`; `off` to disable) |
-| `CONTROLLAYER_SECRET_KEY` | Encrypts cloud keys saved in the app (`openssl rand -base64 32`) |
+| `CONTROLLAYER_SECRET_KEY` | Encrypts keys saved in the app: cloud keys and the assistant API key (`openssl rand -base64 32`) |
+| `ORGANIZATION_NAME`, `SCAN_INTERVAL_HOURS`, `SNAPSHOT_INTERVAL_DAYS`, `TIMESTAMP_AUTHORITY_URL`, `ENABLE_AWS_REMEDIATION`, `ASSISTANT_API_KEY`, `ASSISTANT_MODEL` | Defaults for the settings above |
 | `AWS_*`, `GCP_*`, `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*` | Optional: cloud credentials from the environment instead of the app |
-| `ENABLE_AWS_REMEDIATION` | Lets admins apply a "require MFA" IAM policy to an AWS user from a finding. **This is the only feature that changes a cloud account**; it is off by default and needs `iam:PutUserPolicy`. |
-| `ASSISTANT_API_KEY`, `ASSISTANT_MODEL` | Optional assistant that explains controls and drafts audit narrative from your data. It can only read and answer; pass/fail always comes from the checks. Off when unset. |
 | `SECURE_COOKIES` | Force HTTPS-only session cookies (automatic behind an HTTPS proxy) |
 
 ## How it works

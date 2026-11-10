@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// No API key saved in Settings.
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ assistantApiKey: null, assistantModel: null }) }));
 import { sanitizeContext } from './engine';
 
 describe('sanitizeContext', () => {
@@ -35,15 +38,11 @@ describe('sanitizeContext', () => {
 });
 
 describe('Assistant when no API key is configured', () => {
-  beforeEach(() => {
-    delete process.env.ASSISTANT_API_KEY;
-  });
-
   it('generateExplanation degrades to a deterministic message instead of throwing', async () => {
     const { Assistant } = await import('./engine');
     const result = await Assistant.generateExplanation('CC6.1', [{ a: 1 }], [{ b: 2 }]);
     expect(result).toContain('not configured');
-    expect(result).toContain('ASSISTANT_API_KEY');
+    expect(result).toContain('Settings');
   });
 
   it('chat degrades to a deterministic message instead of throwing', async () => {

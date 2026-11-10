@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildRequest, inspectToken, tsaUrl } from './timestamp';
+import { parseTsaUrl } from '@/lib/settings';
+import { buildRequest, inspectToken } from './timestamp';
 
 // A real token issued by freetsa.org for sha256("hello controllayer").
 const TOKEN = new Uint8Array(readFileSync(path.join(__dirname, 'fixtures', 'freetsa-token.tsr')));
@@ -29,11 +30,8 @@ describe('RFC 3161 tokens', () => {
   });
 
   it('can be turned off', () => {
-    const before = process.env.TIMESTAMP_AUTHORITY_URL;
-    process.env.TIMESTAMP_AUTHORITY_URL = 'off';
-    expect(tsaUrl()).toBeNull();
-    process.env.TIMESTAMP_AUTHORITY_URL = before ?? '';
-    expect(tsaUrl()).toBe(before || 'https://freetsa.org/tsr');
-    if (before === undefined) delete process.env.TIMESTAMP_AUTHORITY_URL;
+    expect(parseTsaUrl('off')).toBeNull();
+    expect(parseTsaUrl('')).toBe('https://freetsa.org/tsr');
+    expect(parseTsaUrl('https://tsa.example/tsr')).toBe('https://tsa.example/tsr');
   });
 });

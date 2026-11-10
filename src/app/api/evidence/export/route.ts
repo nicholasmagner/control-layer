@@ -4,7 +4,7 @@ import { buildAuditPackage } from '@/evidence/package';
 import { verifyEvidenceChain } from '@/evidence/store';
 import { DEFAULT_FRESHNESS_DAYS, getFramework } from '@/frameworks';
 import { logEvent } from '@/lib/events';
-import { organizationName } from '@/lib/settings';
+import { getSettings } from '@/lib/settings';
 
 export const maxDuration = 120;
 
@@ -80,7 +80,7 @@ export const GET = handle(async (req: Request) => {
 
   const { zip, fileName } = await buildAuditPackage({
     framework,
-    organization: organizationName(),
+    organization: (await getSettings()).organizationName,
     period: { from, to },
     generatedAt: new Date(),
     generatedBy: `${user.name} <${user.email}>`,

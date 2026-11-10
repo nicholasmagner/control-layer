@@ -8,34 +8,18 @@ import path from 'node:path';
  * the ControlLayer server, exactly like a .env file in a server install.
  */
 
-export const SETTINGS_TEMPLATE = `# ControlLayer settings
-# Edit this file, save it, then choose ControlLayer > Restart from the menu.
-# Lines starting with # are ignored. Leave a value empty to use the default.
+export const SETTINGS_TEMPLATE = `# ControlLayer desktop settings
+# Most settings (organization name, automatic scans, assistant API key,
+# cloud accounts) are in the app: open Settings or Cloud Accounts.
+#
+# This file only controls how the desktop app is reached. After editing,
+# save it and choose ControlLayer > Restart ControlLayer.
 
-# Shown in the app and on audit evidence packages.
-ORGANIZATION_NAME=
-
-# Cloud accounts are connected in the app: Cloud Accounts > Connect.
-# (Advanced: AWS_*, GCP_* and AZURE_* environment variables still work.)
-
-# --- Scheduling and evidence ------------------------------------------------
-# Scan every configured account every N hours while the app is open.
-SCAN_INTERVAL_HOURS=
-# Fresh evidence image for unchanged checks every N days (default 30).
-SNAPSHOT_INTERVAL_DAYS=
-# Independent timestamp authority ("off" to disable). Only a fingerprint is sent.
-TIMESTAMP_AUTHORITY_URL=
-
-# --- Sharing with teammates or your auditor -----------------------------------
-# Set to true to let other computers on your network open ControlLayer at
-# http://<this computer's address>:PORT (allow it through your firewall).
+# Let teammates or your auditor open ControlLayer from other computers on
+# your network at http://<this computer's address>:PORT (allow it through
+# your firewall). The address appears in the ControlLayer menu.
 ALLOW_NETWORK_ACCESS=false
 PORT=3210
-
-# --- Optional features --------------------------------------------------------
-ENABLE_AWS_REMEDIATION=false
-ASSISTANT_API_KEY=
-ASSISTANT_MODEL=
 `;
 
 /** Settings the desktop app manages itself; ignored if set in the file. */
