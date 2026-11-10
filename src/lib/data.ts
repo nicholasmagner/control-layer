@@ -4,6 +4,7 @@ import { can, type CurrentUser } from '@/auth/session';
 import { ALL_CHECKS } from '@/checks';
 import { connectorInfo, type ConnectorInfo } from '@/connectors';
 import { isLocalInstall } from '@/connectors/config';
+import { sampleDevices } from '@/connectors/sample';
 import { secretsAvailable } from '@/lib/secrets';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
@@ -99,6 +100,14 @@ export interface AppData {
   timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
   settings: SettingsView;
   policies: PoliciesData;
+  devices: {
+    id: string; hostname: string; os: string; osVersion: string; role: string; owner: string | null; agentVersion: string;
+    ip: string | null; firstSeenAt: string; lastSeenAt: string;
+    /** From the latest device scan: checks this device fails, and how many it passes. */
+    failing: { checkId: string; title: string; message: string }[];
+    passing: number;
+    isSample: boolean;
+  }[];
   trust: {
     config: TrustConfig;
     documents: { id: string; title: string; description: string | null; access: string; fileName: string; fileSize: number; uploadedBy: string; createdAt: string }[];
@@ -111,6 +120,19 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 export async function getAppData(user: CurrentUser): Promise<AppData> {
   const settings = await settingsView();
   const policies = await policiesData();
+  const realDevices = await prisma.device.findMany({ orderBy: [{ role: 'asc' }, { hostname: 'asc' }] });
+  // With only sample data loaded, show the sample company's devices.
+  const showSample = !realDevices.length;
+  const deviceRun = await prisma.checkRun.findFirst({
+    where: { provider: 'devices', status: { in: ['success', 'partial'] }, isSample: showSample }, orderBy: { startedAt: 'desc' }, select: { id: true, startedAt: true },
+  });
+  const deviceRows = realDevices.length ? realDevices : deviceRun ? (sampleDevices(deviceRun.startedAt).devices ?? []).map(d => ({
+    id: d.id, hostname: d.hostname, os: d.os, osVersion: d.osVersion, role: d.role, owner: d.owner ?? null, agentVersion: d.agentVersion,
+    ip: null, firstSeenAt: new Date(d.lastSeenAt), lastSeenAt: new Date(d.lastSeenAt),
+  })) : [];
+  const deviceResults = deviceRun
+    ? await prisma.checkResult.findMany({ where: { runId: deviceRun.id }, select: { checkId: true, resourceId: true, status: true, message: true } })
+    : [];
   const [trustConfig, trustDocs, trustRequests] = await Promise.all([
     loadTrustConfig(),
     prisma.trustDocument.findMany({ orderBy: { createdAt: 'asc' }, select: { id: true, title: true, description: true, access: true, fileName: true, fileSize: true, uploadedBy: true, createdAt: true } }),
@@ -220,6 +242,16 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
     },
     settings,
     policies,
+    devices: deviceRows.map(d => {
+      const mine = deviceResults.filter(r => r.resourceId === `device:${d.id}` || r.resourceId.startsWith(`device:${d.id}/`));
+      return {
+        id: d.id, hostname: d.hostname, os: d.os, osVersion: d.osVersion, role: d.role, owner: d.owner, agentVersion: d.agentVersion,
+        ip: d.ip, firstSeenAt: d.firstSeenAt.toISOString(), lastSeenAt: d.lastSeenAt.toISOString(),
+        failing: mine.filter(r => r.status === 'fail').map(r => ({ checkId: r.checkId, title: ALL_CHECKS.find(c => c.id === r.checkId)?.title ?? r.checkId, message: r.message })),
+        passing: mine.filter(r => r.status === 'pass').length,
+        isSample: showSample,
+      };
+    }),
     trust: {
       config: trustConfig,
       documents: trustDocs.map(d => ({ ...d, createdAt: d.createdAt.toISOString() })),

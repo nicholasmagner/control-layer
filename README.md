@@ -2,7 +2,7 @@
 
 **Open-source continuous compliance and audit evidence for small teams.**
 
-ControlLayer scans your AWS, Google Cloud and Azure accounts, your Google Workspace or Microsoft 365 directory, and your GitHub organization. It maps what it finds to SOC 2, CMMC and PCI DSS controls, gives you ready-made policies your team signs, and collects the evidence your auditor will ask for. When the audit starts, you hand over a single package organized control by control, or give your auditor a read-only login. A public Trust Center shows customers how you protect their data.
+ControlLayer scans your AWS, Google Cloud and Azure accounts, your Google Workspace, Microsoft 365 or on-premises Active Directory, your GitHub organization, and your own servers and laptops. It maps what it finds to SOC 2, CMMC and PCI DSS controls, gives you ready-made policies your team signs, and collects the evidence your auditor will ask for. When the audit starts, you hand over a single package organized control by control, or give your auditor a read-only login. A public Trust Center shows customers how you protect their data.
 
 It is built for companies without a compliance team: self-hosted, read-only by default, and free.
 
@@ -10,8 +10,9 @@ It is built for companies without a compliance team: self-hosted, read-only by d
 
 ## What it does
 
-- **Continuous checks.** 51 read-only checks across AWS, Google Cloud, Azure, Google Workspace, Microsoft 365 and GitHub: MFA, inactive users, key rotation, public storage, open SSH/RDP, encryption, audit logging, backups, code review, secret scanning, Dependabot and more.
-- **Offboarding checks.** Mark people as having left, and ControlLayer flags any Google Workspace, Microsoft 365 or GitHub account they can still use.
+- **Continuous checks.** 66 read-only checks across AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, Active Directory, GitHub, and servers and laptops: MFA, inactive users, key rotation, public storage, open SSH/RDP, encryption, audit logging, backups, code review, secret scanning, Dependabot and more.
+- **On-premises support.** A small read-only script for Linux, Windows and macOS reports each server's and laptop's disk encryption, firewall, updates, malware protection, screen lock, SSH/Remote Desktop settings, logging, password rules and local accounts, wherever the machine runs. Active Directory is checked over LDAP for password policy, stale accounts, Domain Admins and password exceptions.
+- **Offboarding checks.** Mark people as having left, and ControlLayer flags any Google Workspace, Microsoft 365, Active Directory or GitHub account they can still use.
 - **Policies with employee sign-off.** 14 policy templates written for small companies (information security, acceptable use, access control, incident response, business continuity and more), already mapped to SOC 2, CMMC and PCI DSS controls. Edit, publish, and send each person a personal link to read and accept them; no account needed. Every published version is saved as evidence, and the audit package includes who accepted which version and when.
 - **People directory.** Add employees and contractors by hand, from a CSV, or straight from Google Workspace or Microsoft 365.
 - **Trust Center.** A public page with your compliance status, the security practices your latest scans verify, and your policy list. Share your SOC 2 report and other documents with people who accept your confidentiality terms, through time-limited links you approve.
@@ -84,10 +85,20 @@ Either way, ControlLayer only reads configuration. The permissions it needs:
 | **Google Workspace** | Domain-wide delegation for the scope `admin.directory.user.readonly`, acting as an admin |
 | **Microsoft 365** | Graph `User.Read.All`, `AuditLog.Read.All`, `Policy.Read.All`, `RoleManagement.Read.Directory` (or sign in as a Global Reader). Sign-in activity and MFA registration reports need Microsoft Entra ID P1 or P2. |
 | **GitHub** | Token scopes `repo` and `read:org`, from an organization owner (owners can see 2FA status and security settings) |
+| **Active Directory** | A regular domain user (no admin rights). ControlLayer must reach a domain controller over `ldaps://` (636) or `ldap://` with StartTLS. |
 
 If a permission is missing, the scan still runs everything it can and lists the sections it could not read. Those checks are reported as not evaluated, never as passing. The first real scan automatically removes the sample data.
 
 Server installs can still use environment variables instead; see [`.env.example`](./.env.example).
+
+### Servers and laptops (on-premises or anywhere)
+
+Open **Devices** and click **Add a device**. Copy the one-line command for Linux, macOS or Windows and run it on each machine as root / Administrator (or push it with Group Policy, Intune, Jamf or Ansible). With **Run every day** it also adds a daily job (cron, launchd or a scheduled task), so reports stay current.
+
+- The script only reads settings and sends them over HTTPS to your ControlLayer server; machines need to reach that address, ControlLayer never connects to them. Check what it would send with `--print` (`-Print` on Windows).
+- Machines authenticate with a device key that can only submit reports. Replace it any time under Devices.
+- Device checks re-run automatically a few minutes after reports arrive. Settings a script cannot read are reported as not evaluated, never as passing.
+- The scripts are in [`assets/agent/`](./assets/agent/) for review.
 
 ### Scheduled scans
 
@@ -120,7 +131,7 @@ npm run dev                       # http://localhost:3000
 | `npm test` | Unit tests (checks, evidence chain, audit package, scoring, auth helpers) |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run build` | Production build |
-| `npm run scan [aws gcp azure gworkspace m365 github]` | Scan configured integrations from the command line |
+| `npm run scan [aws gcp azure gworkspace m365 github ad devices]` | Scan configured integrations from the command line |
 | `node scripts/screenshots.mjs URL` | Regenerate the README screenshots (needs Playwright) |
 
 ## Configuration
@@ -154,7 +165,8 @@ cloud APIs ──► connectors (read-only)  ──► normalized inventory
 ```
 
 - `src/frameworks/`: control catalogs (SOC 2, CMMC, PCI DSS) with expected evidence.
-- `src/connectors/`: AWS, Google Cloud, Azure, Google Workspace, Microsoft 365 and GitHub collectors, browser sign-in, plus the sample company.
+- `src/connectors/`: AWS, Google Cloud, Azure, Google Workspace, Microsoft 365, GitHub and Active Directory collectors, browser sign-in, plus the sample company.
+- `src/devices/` and `assets/agent/`: the device agent scripts, the report format and the report endpoint.
 - `src/policies/`: policy templates, publishing, sign-off links and the safe Markdown renderer.
 - `src/trust/`: Trust Center settings, verified practices and access links.
 - `src/checks/`: checks over the normalized inventory, each mapped to framework controls. They don't call cloud APIs, so they are unit-tested directly.
@@ -164,7 +176,7 @@ cloud APIs ──► connectors (read-only)  ──► normalized inventory
 
 ### Adding a check
 
-Add an entry to the provider's file in `src/checks/` (`aws.ts`, `gcp.ts`, `azure.ts`, `identity.ts` or `github.ts`) with the controls it maps to. If it needs data that isn't collected yet, extend the inventory type and its collector in `src/connectors/`. Add a test in `src/checks/checks.test.ts`. The test suite fails if a check maps to a control that doesn't exist.
+Add an entry to the provider's file in `src/checks/` (`aws.ts`, `gcp.ts`, `azure.ts`, `identity.ts`, `github.ts` or `devices.ts`) with the controls it maps to. If it needs data that isn't collected yet, extend the inventory type and its collector in `src/connectors/`. Add a test in `src/checks/checks.test.ts`. The test suite fails if a check maps to a control that doesn't exist.
 
 ### Adding a framework
 

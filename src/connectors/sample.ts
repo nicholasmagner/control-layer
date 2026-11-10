@@ -2,7 +2,8 @@ import type { AwsInventory } from '@/checks/aws';
 import type { AzureInventory } from '@/checks/azure';
 import type { GcpInventory } from '@/checks/gcp';
 import type { GithubInventory } from '@/checks/github';
-import type { DirectoryUser, IdentityInventory } from '@/checks/identity';
+import type { DevicesInventory } from '@/checks/devices';
+import type { AdInventory, DirectoryUser, IdentityInventory } from '@/checks/identity';
 import type { Provider } from '@/checks/types';
 import type { CollectResult } from './common';
 
@@ -169,7 +170,67 @@ export function sampleGithub(now = new Date()): GithubInventory {
   };
 }
 
-type AnyInventory = AwsInventory | GcpInventory | AzureInventory | IdentityInventory | GithubInventory;
+export function sampleAd(now = new Date()): AdInventory {
+  const u = (sam: string, name: string, o: Partial<DirectoryUser> = {}): DirectoryUser => ({
+    id: `CN=${name},OU=Staff,DC=corp,DC=acme,DC=example`, email: `${sam}@acme.example`, name, isAdmin: false, active: true,
+    lastSignIn: daysAgo(2, now), createdAt: daysAgo(700, now), ...o,
+  });
+  return {
+    tenant: 'corp.acme.example',
+    collectedAt: now.toISOString(),
+    passwordPolicy: { minLength: 8, complexity: true, lockoutThreshold: 0, maxAgeDays: 90 },
+    users: [
+      u('maria', 'Maria Lopez', { isAdmin: true }),
+      u('adm-maria', 'Maria Lopez (admin)', { isAdmin: true, email: 'adm-maria@acme.example', lastSignIn: daysAgo(6, now) }),
+      u('dev.chen', 'Dev Chen'),
+      u('sam.rivera', 'Sam Rivera', { lastSignIn: daysAgo(23, now) }),
+      u('svc-backup', 'Backup service', { lastSignIn: daysAgo(1, now) }),
+      u('scanner', 'Old scanner account', { lastSignIn: daysAgo(400, now) }),
+      u('old.intern', 'Former Intern', { active: false, lastSignIn: daysAgo(500, now) }),
+    ],
+    flags: [
+      { email: 'maria@acme.example', passwordNeverExpires: false, passwordNotRequired: false },
+      { email: 'adm-maria@acme.example', passwordNeverExpires: false, passwordNotRequired: false },
+      { email: 'dev.chen@acme.example', passwordNeverExpires: false, passwordNotRequired: false },
+      { email: 'sam.rivera@acme.example', passwordNeverExpires: false, passwordNotRequired: false },
+      { email: 'svc-backup@acme.example', passwordNeverExpires: true, passwordNotRequired: false },
+      { email: 'scanner@acme.example', passwordNeverExpires: true, passwordNotRequired: true },
+    ],
+    formerPeople: sampleFormer(now),
+  };
+}
+
+export function sampleDevices(now = new Date()): DevicesInventory {
+  const base = { agentVersion: '1.0.0', lastSeenAt: daysAgo(0, now) };
+  return {
+    collectedAt: now.toISOString(),
+    devices: [
+      {
+        ...base, id: 'sample-fileserver', hostname: 'fs01.corp.acme.example', os: 'windows', osVersion: 'Windows Server 2022 Standard 21H2', role: 'server',
+        diskEncrypted: true, firewallEnabled: true, autoUpdates: true, daysSinceUpdate: 12, malwareProtection: true, rdpEnabled: true, rdpNla: true,
+        auditLogging: true, passwordMinLength: 8, lockoutThreshold: 0, timeSync: true,
+        localAccounts: [{ name: 'Administrator', admin: true, enabled: false }, { name: 'backupop', admin: false, enabled: true, lastLogin: daysAgo(210, now) }],
+      },
+      {
+        ...base, id: 'sample-erp', hostname: 'erp-db01', os: 'linux', osVersion: 'Ubuntu 22.04.4 LTS', role: 'server',
+        diskEncrypted: false, firewallEnabled: true, autoUpdates: false, daysSinceUpdate: 64, sshRootLogin: false, sshPasswordAuth: true,
+        auditLogging: false, passwordMinLength: 12, timeSync: true,
+        localAccounts: [{ name: 'deploy', admin: true, enabled: true, lastLogin: daysAgo(3, now) }, { name: 'olddba', admin: false, enabled: true, lastLogin: null }],
+      },
+      {
+        ...base, id: 'sample-mac', hostname: 'Marias-MacBook-Pro', os: 'macos', osVersion: 'macOS 15.5', role: 'workstation', owner: 'maria@acme.example',
+        diskEncrypted: true, firewallEnabled: true, autoUpdates: true, daysSinceUpdate: 6, malwareProtection: true, screenLockMinutes: 5,
+      },
+      {
+        ...base, id: 'sample-laptop', hostname: 'ACME-LT-014', os: 'windows', osVersion: 'Windows 11 Pro 24H2', role: 'workstation', owner: 'dev.chen@acme.example',
+        lastSeenAt: daysAgo(11, now), diskEncrypted: false, firewallEnabled: true, autoUpdates: true, daysSinceUpdate: 9, malwareProtection: true,
+        screenLockMinutes: null, rdpEnabled: false, passwordMinLength: 0, lockoutThreshold: 10,
+      },
+    ],
+  };
+}
+
+type AnyInventory = AwsInventory | GcpInventory | AzureInventory | IdentityInventory | GithubInventory | DevicesInventory;
 
 export function sampleInventory(provider: Provider): CollectResult<AnyInventory> {
   switch (provider) {
@@ -179,5 +240,7 @@ export function sampleInventory(provider: Provider): CollectResult<AnyInventory>
     case 'gworkspace': return { inventory: sampleGworkspace(), errors: [], account: 'acme.example (sample)' };
     case 'm365': return { inventory: sampleM365(), errors: [], account: 'acme.onmicrosoft.com (sample)' };
     case 'github': return { inventory: sampleGithub(), errors: [], account: 'acme-example (sample)' };
+    case 'ad': return { inventory: sampleAd(), errors: [], account: 'corp.acme.example (sample)' };
+    case 'devices': return { inventory: sampleDevices(), errors: [], account: '4 devices (sample)' };
   }
 }

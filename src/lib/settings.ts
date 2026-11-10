@@ -70,6 +70,8 @@ export async function loadSettings(): Promise<Loaded> {
   const rows = await prisma.appSetting.findMany();
   const saved: Partial<Record<SettingKey, unknown>> = {};
   for (const r of rows) {
+    // Other features keep their own values in this table (Trust Center, device key).
+    if (!(r.key in DEFAULTS)) continue;
     try {
       saved[r.key as SettingKey] = SECRET_KEYS.has(r.key as SettingKey) ? decryptSecret(r.value) : JSON.parse(r.value);
     } catch (err) {

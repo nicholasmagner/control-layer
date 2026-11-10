@@ -1,6 +1,6 @@
 import type { FrameworkId } from '@/frameworks';
 
-export type Provider = 'aws' | 'gcp' | 'azure' | 'github' | 'gworkspace' | 'm365';
+export type Provider = 'aws' | 'gcp' | 'azure' | 'github' | 'gworkspace' | 'm365' | 'ad' | 'devices';
 
 /** People marked as having left, from the People list, for offboarding checks. */
 export interface FormerPerson {

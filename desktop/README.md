@@ -42,6 +42,14 @@ if it isn't installed yet, the dialog links to the installer. Or choose the key
 option and follow the short steps shown (Google Workspace always uses a key).
 Keys are stored encrypted on this computer.
 
+### Servers and laptops
+
+Open **Devices** > **Add a device** for the command to run on each machine.
+Other machines send their reports to this computer, so turn on network access
+first (ControlLayer menu > Network Settings…) and use the network address the
+menu shows. For servers that must report around the clock, run ControlLayer
+on a server with Docker.
+
 ### Trust Center
 
 The public Trust Center page (`/trust`) is served by the app, so others can

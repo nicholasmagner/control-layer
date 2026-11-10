@@ -362,3 +362,29 @@ model TrustRequest {
 
   @@index([status, createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// Devices: servers and laptops that report their security settings with the
+// ControlLayer agent script (on-premises or anywhere).
+// ---------------------------------------------------------------------------
+
+model Device {
+  id           String   @id @default(uuid())
+  // SHA-256 of the machine's own ID (machine-id / MachineGuid / hardware UUID).
+  machineHash  String   @unique
+  hostname     String
+  // 'linux' | 'windows' | 'macos'
+  os           String
+  osVersion    String
+  // 'server' | 'workstation'
+  role         String
+  // Email of the person who uses it (laptops), linked to People by email.
+  owner        String?
+  agentVersion String
+  ip           String?
+  report       Json
+  firstSeenAt  DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
+
+  @@index([lastSeenAt])
+}

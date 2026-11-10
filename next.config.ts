@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   // Rendering libraries with native/wasm parts are loaded from node_modules at runtime.
   serverExternalPackages: ['satori', 'sharp'],
   // Fonts used to render evidence images.
-  outputFileTracingIncludes: { '/**': ['./assets/fonts/**'] },
+  outputFileTracingIncludes: { '/**': ['./assets/fonts/**', './assets/agent/**'] },
   async headers() {
     return [{
       source: '/:path*',

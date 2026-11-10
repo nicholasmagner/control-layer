@@ -1,0 +1,39 @@
+name: Device agent
+
+# Runs the agent scripts on real Linux, macOS and Windows machines in print
+# mode and checks their reports with the server's own parser.
+on:
+  push:
+    paths: ['assets/agent/**', 'src/devices/**', 'scripts/check-agent-report.ts', '.github/workflows/agent.yml']
+  pull_request:
+    paths: ['assets/agent/**', 'src/devices/**']
+  workflow_dispatch:
+
+jobs:
+  agent:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, kind: linux }
+          - { os: macos-latest, kind: macos }
+          - { os: windows-latest, kind: windows }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run the agent (Linux / macOS)
+        if: matrix.kind != 'windows'
+        run: sudo bash assets/agent/controllayer-agent.sh --print > report.json
+      - name: Run the agent (Windows PowerShell 5.1, as administrator)
+        if: matrix.kind == 'windows'
+        shell: powershell
+        run: |
+          $out = powershell -NoProfile -ExecutionPolicy Bypass -File .\assets\agent\controllayer-agent.ps1 -Print
+          [IO.File]::WriteAllText("$PWD\report.json", ($out -join "`n"))
+      - name: Check the report
+        run: npx tsx scripts/check-agent-report.ts report.json ${{ matrix.kind }}

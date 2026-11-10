@@ -9,7 +9,7 @@ import { decryptSecret, encryptSecret } from '@/lib/secrets';
  *  2. environment variables (server installs, backwards compatible)
  */
 
-export type Method = 'signin' | 'keys' | 'env';
+export type Method = 'signin' | 'keys' | 'env' | 'agent';
 
 /** Named AWS CLI profile that browser sign-in (aws login) writes to. */
 export const AWS_SIGNIN_PROFILE = 'controllayer';
@@ -60,7 +60,22 @@ export interface M365Connection {
   app?: { tenantId: string; clientId: string; clientSecret: string };
 }
 
-export type Connection = AwsConnection | GcpConnection | AzureConnection | GithubConnection | GworkspaceConnection | M365Connection;
+export interface AdConnection {
+  method: Method;
+  label: string;
+  /** ldaps://dc.corp.example.com or ldap://dc.corp.example.com */
+  url: string;
+  startTls: boolean;
+  /** Base DN; found automatically when empty. */
+  baseDn?: string;
+  /** user@corp.example.com, CORP\\user or a DN. */
+  username: string;
+  password: string;
+  /** PEM certificate of an internal certificate authority, if the DC's certificate isn't publicly trusted. */
+  caCert?: string;
+}
+
+export type Connection = AdConnection | AwsConnection | GcpConnection | AzureConnection | GithubConnection | GworkspaceConnection | M365Connection;
 
 const list = (v: string | undefined, fallback: string) =>
   [...new Set((v || fallback).split(',').map(s => s.trim()).filter(Boolean))];
@@ -158,6 +173,20 @@ export async function m365Connection(): Promise<M365Connection | null> {
   };
 }
 
+export async function adConnection(): Promise<AdConnection | null> {
+  const row = await stored('ad');
+  if (!row?.secret) return null;
+  const s = row.settings as { url: string; startTls?: boolean; baseDn?: string; username: string; caCert?: string; label?: string };
+  const secret = decryptSecret(row.secret) as { password: string };
+  return { method: row.method as Method, label: s.label ?? s.url, url: s.url, startTls: s.startTls !== false, baseDn: s.baseDn, username: s.username, password: secret.password, caCert: s.caCert };
+}
+
+/** Devices need no connection: they report with the agent script. */
+export async function devicesConnection(): Promise<{ method: Method; label: string; count: number } | null> {
+  const count = await prisma.device.count();
+  return count ? { method: 'agent', label: `${count} device${count === 1 ? '' : 's'}`, count } : null;
+}
+
 export function connection(provider: Provider): Promise<Connection | null> {
   switch (provider) {
     case 'aws': return awsConnection();
@@ -166,6 +195,8 @@ export function connection(provider: Provider): Promise<Connection | null> {
     case 'github': return githubConnection();
     case 'gworkspace': return gworkspaceConnection();
     case 'm365': return m365Connection();
+    case 'ad': return adConnection();
+    case 'devices': return Promise.resolve(null);
   }
 }
 

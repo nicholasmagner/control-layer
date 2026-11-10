@@ -28,7 +28,7 @@ export function Button({ variant = 'primary', size = 'md', className, ...props }
     <button
       {...props}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60',
+        'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60',
         size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',
         variant === 'primary' && 'bg-sky-600 hover:bg-sky-500 text-white',
         variant === 'secondary' && 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700',
@@ -109,7 +109,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
+      <span className="block text-sm font-medium text-slate-300">{label}</span>
       {children}
       {hint && <span className="block text-xs text-slate-500">{hint}</span>}
     </label>

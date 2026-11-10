@@ -37,17 +37,39 @@ export interface IdentityInventory {
   formerPeople?: FormerPerson[];
 }
 
-const NAMES: Record<string, string> = { gworkspace: 'Google Workspace', m365: 'Microsoft 365' };
+type IdentityProvider = Extract<Provider, 'gworkspace' | 'm365' | 'ad'>;
+
+const TEXT: Record<IdentityProvider, { name: string; adminWord: string; inactiveFix: string; adminFix: string; leaverFix: string }> = {
+  gworkspace: {
+    name: 'Google Workspace', adminWord: 'super admin',
+    inactiveFix: 'Suspend or delete the listed users in the Google Admin console (Directory > Users), after checking they are no longer needed.',
+    adminFix: 'In the Google Admin console open Account > Admin roles > Super Admin > Admins, and give everyday administrators a narrower role instead.',
+    leaverFix: 'Suspend the listed users in the Google Admin console (Directory > Users > Suspend), transfer their data, and sign them out of all sessions.',
+  },
+  m365: {
+    name: 'Microsoft 365', adminWord: 'Global Administrator',
+    inactiveFix: 'Block sign-in for or delete the listed users in the Microsoft 365 admin center (Users > Active users), after checking they are no longer needed.',
+    adminFix: 'In the Microsoft Entra admin center open Roles & admins > Global Administrator, and give everyday administrators a narrower role instead.',
+    leaverFix: 'Block sign-in for the listed users in the Microsoft 365 admin center, revoke their sessions, and convert their mailbox if you need to keep it.',
+  },
+  ad: {
+    name: 'Active Directory', adminWord: 'Domain Admin',
+    inactiveFix: 'Disable the listed accounts in Active Directory Users and Computers (or Disable-ADAccount), after checking they are not service accounts in use.',
+    adminFix: 'Remove everyday accounts from Domain Admins and Enterprise Admins; use separate admin accounts and delegated permissions instead.',
+    leaverFix: 'Disable the listed accounts in Active Directory (Disable-ADAccount), reset their passwords, and remove them from groups.',
+  },
+};
 const MAX_ADMINS = 4;
 
-function identityChecks(provider: Extract<Provider, 'gworkspace' | 'm365'>): CheckDef<IdentityInventory>[] {
-  const name = NAMES[provider];
+function identityChecks(provider: IdentityProvider): CheckDef<IdentityInventory>[] {
+  const t = TEXT[provider];
+  const name = t.name;
   const google = provider === 'gworkspace';
-  const adminWord = google ? 'super admin' : 'Global Administrator';
+  const adminWord = t.adminWord;
   const rid = (inv: IdentityInventory, u?: DirectoryUser) => `${provider}:${inv.tenant}${u ? `/${u.email}` : ''}`;
   const members = (inv: IdentityInventory) => (inv.users ?? []).filter(u => u.active && !u.guest);
 
-  return [
+  const all: CheckDef<IdentityInventory>[] = [
     {
       id: `${provider}.mfa_enforced`,
       provider,
@@ -95,9 +117,7 @@ function identityChecks(provider: Extract<Provider, 'gworkspace' | 'm365'>): Che
       title: `Unused ${name} accounts are disabled`,
       description: `Active accounts that have not signed in for ${INACTIVE_DAYS} days are often left over from people who left.`,
       severity: 'Medium',
-      remediation: google
-        ? 'Suspend or delete the listed users in the Google Admin console (Directory > Users), after checking they are no longer needed.'
-        : 'Block sign-in for or delete the listed users in the Microsoft 365 admin center (Users > Active users), after checking they are no longer needed.',
+      remediation: t.inactiveFix,
       controls: { SOC2: ['CC6.2'], CMMC: ['AC.L1-3.1.1'], PCI: ['8.2.6'] },
       evaluate: inv => {
         if (!inv.users) return null;
@@ -123,9 +143,7 @@ function identityChecks(provider: Extract<Provider, 'gworkspace' | 'm365'>): Che
       title: `Few ${name} ${adminWord}s`,
       description: `Full control of the company's accounts should be limited to a few people: no more than ${MAX_ADMINS} ${adminWord}s (ideally 2, so one locked-out account doesn't lock you out).`,
       severity: 'Medium',
-      remediation: google
-        ? 'In the Google Admin console open Account > Admin roles > Super Admin > Admins, and give everyday administrators a narrower role instead.'
-        : 'In the Microsoft Entra admin center open Roles & admins > Global Administrator, and give everyday administrators a narrower role instead.',
+      remediation: t.adminFix,
       controls: { SOC2: ['CC6.3'], CMMC: ['AC.L1-3.1.2'], PCI: ['7.2.1'] },
       evaluate: inv => {
         if (!inv.users) return null;
@@ -145,9 +163,7 @@ function identityChecks(provider: Extract<Provider, 'gworkspace' | 'm365'>): Che
       title: `People who left can no longer sign in to ${name}`,
       description: `Active ${name} accounts are compared with the people marked as having left in ControlLayer (by email).`,
       severity: 'High',
-      remediation: google
-        ? 'Suspend the listed users in the Google Admin console (Directory > Users > Suspend), transfer their data, and sign them out of all sessions.'
-        : 'Block sign-in for the listed users in the Microsoft 365 admin center, revoke their sessions, and convert their mailbox if you need to keep it.',
+      remediation: t.leaverFix,
       controls: { SOC2: ['CC6.2', 'CC6.3'], CMMC: ['AC.L1-3.1.1'], PCI: ['8.2.6'] },
       evaluate: inv => {
         if (!inv.users || !inv.formerPeople) return null;
@@ -161,7 +177,61 @@ function identityChecks(provider: Extract<Provider, 'gworkspace' | 'm365'>): Che
       },
     },
   ];
+  // Active Directory has no built-in MFA; that is covered by the identity provider in front of it.
+  return provider === 'ad' ? all.filter(c => !c.id.endsWith('mfa_enforced') && !c.id.endsWith('user_mfa')) : all;
 }
 
 export const GWORKSPACE_CHECKS = identityChecks('gworkspace');
 export const M365_CHECKS = identityChecks('m365');
+
+/** Active Directory: the shared identity checks plus domain password settings. */
+export interface AdInventory extends IdentityInventory {
+  passwordPolicy?: { minLength: number; complexity: boolean; lockoutThreshold: number; maxAgeDays: number | null };
+  /** Enabled user accounts with "password never expires" or "password not required". */
+  flags?: { email: string; passwordNeverExpires: boolean; passwordNotRequired: boolean }[];
+}
+
+export const AD_CHECKS: CheckDef<AdInventory>[] = [
+  ...(identityChecks('ad') as CheckDef<AdInventory>[]),
+  {
+    id: 'ad.password_policy',
+    provider: 'ad',
+    title: 'Active Directory password rules are strong',
+    description: 'The domain password policy should require at least 12 characters with complexity, and lock accounts after at most 10 failed attempts.',
+    severity: 'High',
+    remediation: 'Edit the Default Domain Policy (Group Policy Management > Computer Configuration > Policies > Windows Settings > Security Settings > Account Policies): minimum password length 12+, complexity enabled, account lockout threshold 10 or fewer.',
+    controls: { SOC2: ['CC6.1'], CMMC: ['IA.L1-3.5.2'], PCI: ['8.3.6'] },
+    evaluate: inv => {
+      const p = inv.passwordPolicy;
+      if (!p) return null;
+      const problems = [
+        p.minLength < 12 ? `minimum length is ${p.minLength}` : null,
+        !p.complexity ? 'complexity is off' : null,
+        p.lockoutThreshold === 0 ? 'accounts never lock after failed attempts' : p.lockoutThreshold > 10 ? `accounts lock after ${p.lockoutThreshold} failed attempts` : null,
+      ].filter(Boolean);
+      return [{
+        resourceId: `ad:${inv.tenant}`, resourceName: inv.tenant, status: problems.length ? 'fail' : 'pass',
+        message: problems.length ? `Domain password policy: ${problems.join('; ')}.` : `Domain password policy: ${p.minLength}+ characters, complexity on, lockout after ${p.lockoutThreshold} attempts.`,
+      }];
+    },
+  },
+  {
+    id: 'ad.password_flags',
+    provider: 'ad',
+    title: 'No accounts skip password rules',
+    description: 'Enabled user accounts should not be set to "password not required", and should not have passwords that never expire unless they are documented service accounts.',
+    severity: 'Medium',
+    remediation: 'In Active Directory Users and Computers, open each listed account > Account and clear "Password never expires"; clear "password not required" with Set-ADAccountControl -PasswordNotRequired $false. Use group managed service accounts for services.',
+    controls: { SOC2: ['CC6.1'], CMMC: ['IA.L1-3.5.2'], PCI: ['8.3.6'] },
+    evaluate: inv => {
+      if (!inv.flags) return null;
+      return inv.flags.map<ResourceResult>(f => {
+        const problems = [f.passwordNotRequired ? 'password not required' : null, f.passwordNeverExpires ? 'password never expires' : null].filter(Boolean);
+        return {
+          resourceId: `ad:${inv.tenant}/${f.email}`, resourceName: f.email, status: problems.length ? 'fail' : 'pass',
+          message: problems.length ? `${f.email}: ${problems.join(', ')}.` : `${f.email} follows the password rules.`,
+        };
+      });
+    },
+  },
+];

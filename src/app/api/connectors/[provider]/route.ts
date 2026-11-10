@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { handle, HttpError, requireUser } from '@/auth/session';
 import { isProvider } from '@/checks';
+import { validateAd } from '@/connectors/ad';
 import { AWS_REGION_RE } from '@/connectors/cli';
+import { describeError } from '@/connectors/common';
 import { removeConnection, saveConnection } from '@/connectors/config';
 import {
   signedInChoices, validateAwsKeys, validateAzureServicePrincipal, validateGcpKey, validateGithubToken, validateGworkspace, validateM365App,
@@ -30,7 +32,8 @@ export const PUT = handle(async (req: Request, { params }: RouteParams<'provider
   const body = await readJson(req);
   const method = body.method;
   if (method !== 'signin' && method !== 'keys') throw new HttpError(400, 'method must be "signin" or "keys".');
-  if (method === 'signin' && provider === 'gworkspace') throw new HttpError(400, 'Google Workspace connects with a service account key.');
+  if (method === 'signin' && (provider === 'gworkspace' || provider === 'ad' || provider === 'devices')) throw new HttpError(400, 'This integration does not use browser sign-in.');
+  if (provider === 'devices') throw new HttpError(400, 'Devices report with the agent script; see Devices.');
   if (method === 'keys' && !secretsAvailable()) {
     throw new HttpError(400, 'This server cannot store keys safely because CONTROLLAYER_SECRET_KEY is not set. Ask your administrator to set it, or use environment variables.');
   }
@@ -76,6 +79,33 @@ export const PUT = handle(async (req: Request, { params }: RouteParams<'provider
       label = (await validateGworkspace(keyFile, adminEmail)).label;
       settings = { adminEmail, label };
       secret = keyFile;
+    } else if (provider === 'ad') {
+      const url = str(body.url, 'domain controller address', { max: 300 });
+      if (!/^ldaps?:\/\/[^\s/]+(:\d+)?\/?$/i.test(url)) throw new HttpError(400, 'The address looks like ldaps://dc01.corp.example.com or ldap://10.0.0.5.');
+      const caCert = str(body.caCert, 'CA certificate', { max: 20_000, required: false });
+      if (caCert && !caCert.includes('-----BEGIN CERTIFICATE-----')) throw new HttpError(400, 'The CA certificate must be in PEM format (-----BEGIN CERTIFICATE-----).');
+      const conn = {
+        method: 'keys' as const, label: '', url: url.replace(/\/$/, ''), startTls: body.startTls !== false,
+        baseDn: str(body.baseDn, 'base DN', { max: 500, required: false }) || undefined,
+        username: str(body.username, 'username', { max: 300 }), password: str(body.password, 'password', { max: 500 }),
+        caCert: caCert || undefined,
+      };
+      if (conn.url.toLowerCase().startsWith('ldap://') && !conn.startTls && body.allowPlaintext !== true) {
+        throw new HttpError(400, 'Without ldaps:// or StartTLS the password would be sent unencrypted. Turn on StartTLS or use ldaps://.');
+      }
+      let choice;
+      try {
+        choice = await validateAd(conn);
+      } catch (err) {
+        const msg = describeError(err);
+        const hint = /InvalidCredentials|49/i.test(msg) ? ' Check the username and password.'
+          : /ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|ENOTFOUND|timeout/i.test(msg) ? ' ControlLayer could not reach that domain controller from where it runs.'
+          : /certificate|self.signed|UNABLE_TO_VERIFY/i.test(msg) ? ' The domain controller\'s certificate is not trusted: paste your internal CA certificate.' : '';
+        throw new HttpError(400, `Active Directory: ${msg}.${hint}`);
+      }
+      label = choice.label;
+      settings = { url: conn.url, startTls: conn.startTls, baseDn: choice.id, username: conn.username, caCert: conn.caCert, label };
+      secret = { password: conn.password };
     } else if (provider === 'm365') {
       const app = { tenantId: str(body.tenantId, 'tenantId', { max: 100 }), clientId: str(body.clientId, 'clientId', { max: 100 }), clientSecret: str(body.clientSecret, 'clientSecret', { max: 500 }) };
       if (!GUID.test(app.clientId)) throw new HttpError(400, 'The client ID looks like 00000000-0000-0000-0000-000000000000.');

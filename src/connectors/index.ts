@@ -1,12 +1,14 @@
 import type { FormerPerson, Provider } from '@/checks/types';
 import { prisma } from '@/db/prisma';
+import { collectAd } from './ad';
 import { collectAws } from './aws';
 import { collectAzure } from './azure';
 import { findCli, githubCliToken, type CliName } from './cli';
 import type { CollectResult } from './common';
 import {
-  awsConnection, azureConnection, gcpConnection, githubConnection, gworkspaceConnection, isLocalInstall, m365Connection, type Method,
+  adConnection, awsConnection, azureConnection, devicesConnection, gcpConnection, githubConnection, gworkspaceConnection, isLocalInstall, m365Connection, type Method,
 } from './config';
+import { collectDevices } from './devices';
 import { collectGcp } from './gcp';
 import { collectGithub } from './github';
 import { collectGworkspace } from './gworkspace';
@@ -17,7 +19,7 @@ export type { CollectResult } from './common';
 export interface ConnectorInfo {
   provider: Provider;
   name: string;
-  kind: 'cloud' | 'identity' | 'code';
+  kind: 'cloud' | 'identity' | 'code' | 'onprem';
   /** One line on what ControlLayer checks there. */
   blurb: string;
   configured: boolean;
@@ -49,8 +51,8 @@ const INSTALL: Record<CliName, string> = {
 };
 
 export async function connectorInfo(): Promise<ConnectorInfo[]> {
-  const [aws, gcp, azure, gws, m365, github] = await Promise.all([
-    awsConnection(), gcpConnection(), azureConnection(), gworkspaceConnection(), m365Connection(), githubConnection(),
+  const [aws, gcp, azure, gws, m365, github, ad, devices] = await Promise.all([
+    awsConnection(), gcpConnection(), azureConnection(), gworkspaceConnection(), m365Connection(), githubConnection(), adConnection(), devicesConnection(),
   ]);
   const local = isLocalInstall();
   const cli = async (name: CliName) => ({ name, installUrl: INSTALL[name], installed: !!(await findCli(name)) });
@@ -171,6 +173,33 @@ export async function connectorInfo(): Promise<ConnectorInfo[]> {
         signinNote: `${browserNote('GitHub')} Sign in as an organization owner to see 2FA status and security settings.`,
       },
     },
+    {
+      provider: 'devices', name: 'Servers and laptops', kind: 'onprem',
+      blurb: 'Disk encryption, firewall, updates, malware protection, screen lock, SSH/RDP and local accounts on Linux, Windows and Mac machines, wherever they are.',
+      configured: !!devices, method: devices?.method ?? null, label: devices?.label ?? null,
+      target: devices ? 'Reports from the agent script' : 'No devices yet',
+      cli: null,
+      setup: { keyName: 'the agent script', pickWord: 'device', consoleName: '', keyHelp: [], consoleUrl: '', permissions: 'The script only reads settings.', signinNote: '' },
+    },
+    {
+      provider: 'ad', name: 'Active Directory', kind: 'onprem',
+      blurb: 'Domain password policy, stale and disabled accounts, Domain Admins, password exceptions, and people who left.',
+      configured: !!ad, method: ad?.method ?? null, label: ad?.label ?? null,
+      target: ad ? `Domain controller: ${ad.url.replace(/^ldaps?:\/\//, '')}` : 'Not connected',
+      cli: null,
+      setup: {
+        keyName: 'a read-only domain account', pickWord: 'domain', consoleName: '',
+        keyHelp: [
+          'In Active Directory Users and Computers, create a regular user (e.g. "svc-controllayer"). It needs no special groups: any domain user can read the settings ControlLayer checks.',
+          'Set a long password and tick "Password never expires" only if your policy allows service accounts (or rotate it and update it here).',
+          'Enter a domain controller address. Use ldaps:// (port 636), or ldap:// with StartTLS, so the password is encrypted. If your domain controllers use an internal certificate authority, paste its certificate.',
+          'The computer running ControlLayer must be able to reach the domain controller on your network.',
+        ],
+        consoleUrl: '',
+        permissions: 'A regular domain user account; ControlLayer only reads.',
+        signinNote: '',
+      },
+    },
   ];
 }
 
@@ -212,6 +241,15 @@ export async function collect(provider: Provider): Promise<CollectResult<unknown
       r.inventory.formerPeople = await formerPeople();
       return r;
     }
+    case 'ad': {
+      const c = await adConnection();
+      if (!c) throw notConnected('Active Directory');
+      const r = await collectAd(c);
+      r.inventory.formerPeople = await formerPeople();
+      return r;
+    }
+    case 'devices':
+      return collectDevices();
     case 'github': {
       const c = await githubConnection();
       if (!c) throw notConnected('GitHub');

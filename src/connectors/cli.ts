@@ -62,8 +62,8 @@ export async function findCli(name: CliName): Promise<string | null> {
   return result;
 }
 
-/** CLI used for browser sign-in; Google Workspace has none (it uses a service account). */
-export const CLI_FOR: Record<Provider, CliName | null> = { aws: 'aws', gcp: 'gcloud', azure: 'az', m365: 'az', github: 'gh', gworkspace: null };
+/** CLI used for browser sign-in; null for integrations that don't sign in through a browser. */
+export const CLI_FOR: Record<Provider, CliName | null> = { aws: 'aws', gcp: 'gcloud', azure: 'az', m365: 'az', github: 'gh', gworkspace: null, ad: null, devices: null };
 export const AWS_REGION_RE = /^[a-z]{2}(-[a-z]+)+-\d$/;
 
 /** The sign-in command for each cloud. `local` = the browser is on this computer. */
@@ -88,7 +88,9 @@ export function signinCommand(provider: Provider, local: boolean): { args: strin
         env: { GH_PROMPT_DISABLED: '1', ...(local ? {} : { GH_BROWSER: 'echo' }) },
       };
     case 'gworkspace':
-      throw new Error('Google Workspace connects with a service account key.');
+    case 'ad':
+    case 'devices':
+      throw new Error('This integration does not use browser sign-in.');
   }
 }
 
@@ -130,7 +132,7 @@ const view = (j: Job): SigninJob => ({
 });
 
 const run = (file: string, args: string[], env: NodeJS.ProcessEnv) => new Promise<void>((resolve, reject) => {
-  execFile(file, args, { env, windowsHide: true, shell: process.platform === 'win32' && file.endsWith('.cmd') }, err => (err ? reject(err) : resolve()));
+  execFile(/*turbopackIgnore: true*/ file, args, { env, windowsHide: true, shell: process.platform === 'win32' && file.endsWith('.cmd') }, err => (err ? reject(err) : resolve()));
 });
 
 const quote = (p: string) => (process.platform === 'win32' && /\s/.test(p) ? `"${p}"` : p);
@@ -155,7 +157,8 @@ export async function startSignin(provider: Provider, opts: { awsRegion?: string
   const job: Job = {
     id: randomUUID(), provider, status: 'running', output: '', urls: [], code: null, error: null, startedAt: Date.now(), child: null,
   };
-  const child = spawn(quote(cli), args, {
+  // The CLI path is found at runtime; don't let the bundler trace it.
+  const child = spawn(/*turbopackIgnore: true*/ quote(cli), args, {
     env: childEnv, windowsHide: true, shell: process.platform === 'win32' && cli.endsWith('.cmd'),
   }) as ChildProcessWithoutNullStreams;
   job.child = child;
@@ -218,7 +221,7 @@ export async function githubCliToken(): Promise<string> {
   const cli = await findCli('gh');
   if (!cli) throw new Error('The GitHub CLI (gh) is not installed on the computer running ControlLayer.');
   return new Promise((resolve, reject) => {
-    execFile(quote(cli), ['auth', 'token', '--hostname', 'github.com'], { windowsHide: true, shell: process.platform === 'win32' && cli.endsWith('.cmd') }, (err, stdout) => {
+    execFile(/*turbopackIgnore: true*/ quote(cli), ['auth', 'token', '--hostname', 'github.com'], { windowsHide: true, shell: process.platform === 'win32' && cli.endsWith('.cmd') }, (err, stdout) => {
       const token = stdout.trim();
       if (err || !token) reject(new Error('GitHub sign-in has expired. Open Integrations and connect GitHub again.'));
       else resolve(token);

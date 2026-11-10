@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Cloud, FlaskConical, GitBranch, Play, Plug, Users, XCircle } from 'lucide-react';
+import { Building2, CheckCircle2, Cloud, FlaskConical, GitBranch, Play, Plug, Users, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { TabProps } from './AppShell';
 import ConnectModal from './ConnectModal';
@@ -8,15 +8,16 @@ import { api, Button, Card, cx, ErrorText, formatDate, PageHeader } from './ui';
 
 interface ScanSummary { ok: boolean; error?: string; checksEvaluated: number; passed: number; failed: number; newFindings: number; resolvedFindings: number; warnings: string[] }
 
-const METHOD_LABEL: Record<string, string> = { signin: 'Browser sign-in', keys: 'Read-only key', env: 'Server settings' };
+const METHOD_LABEL: Record<string, string> = { signin: 'Browser sign-in', keys: 'Read-only key', env: 'Server settings', agent: 'Agent script' };
 
 const GROUPS = [
   { kind: 'cloud', title: 'Cloud', icon: Cloud, text: 'Where your product runs.' },
   { kind: 'identity', title: 'Identity and email', icon: Users, text: 'Company accounts: MFA, unused accounts, admins, and access for people who left.' },
   { kind: 'code', title: 'Code', icon: GitBranch, text: 'Code review, two-factor sign-in and security scanning for your source code.' },
+  { kind: 'onprem', title: 'On-premises', icon: Building2, text: 'Your own servers, laptops and Windows domain, wherever they run. ControlLayer must be able to reach the domain controller; devices report to ControlLayer.' },
 ] as const;
 
-export default function ConnectorsTab({ data, refresh }: TabProps) {
+export default function ConnectorsTab({ data, refresh, navigate }: TabProps) {
   const canEdit = data.user.role !== 'auditor';
   const isAdmin = data.user.role === 'admin';
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -123,7 +124,10 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
                     <Button className="w-full" disabled={!canEdit || !!running} onClick={() => scan(c.provider)}>
                       <Play size={14} /> {running === c.provider ? 'Scanning… (about a minute)' : 'Scan now'}
                     </Button>
-                    {isAdmin && c.method !== 'env' && (
+                    {c.provider === 'devices' && (
+                      <div className="flex justify-center text-xs"><button className="text-slate-400 hover:text-slate-200" onClick={() => navigate('devices')}>Manage devices</button></div>
+                    )}
+                    {isAdmin && c.method !== 'env' && c.provider !== 'devices' && (
                       <div className="flex justify-center gap-4 text-xs">
                         <button className="text-slate-400 hover:text-slate-200" onClick={() => setConnecting(c.provider)}>Change connection</button>
                         <button className="text-slate-400 hover:text-red-300" onClick={() => disconnect(c.provider, c.name)}>Disconnect</button>
@@ -131,8 +135,9 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
                     )}
                   </>
                 ) : (
-                  <Button className="w-full" disabled={!isAdmin} onClick={() => setConnecting(c.provider)} title={isAdmin ? undefined : 'Ask an admin to connect integrations'}>
-                    <Plug size={14} /> Connect
+                  <Button className="w-full" disabled={!isAdmin} onClick={() => (c.provider === 'devices' ? navigate('devices') : setConnecting(c.provider))}
+                    title={isAdmin ? undefined : 'Ask an admin to connect integrations'}>
+                    <Plug size={14} /> {c.provider === 'devices' ? 'Add devices' : 'Connect'}
                   </Button>
                 )}
               </div>

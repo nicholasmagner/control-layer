@@ -290,6 +290,7 @@ function KeysForm({ info, busy, error, regionPicker, regions, canStoreKeys, onBa
     else if (info.provider === 'gworkspace') onSave({ method: 'keys', keyFile, adminEmail: f.adminEmail });
     else if (info.provider === 'github') onSave({ method: 'keys', token: f.token, org: f.org });
     else if (info.provider === 'm365') onSave({ method: 'keys', tenantId: f.tenantId, clientId: f.clientId, clientSecret: f.clientSecret });
+    else if (info.provider === 'ad') onSave({ method: 'keys', url: f.url, username: f.username, password: f.password, baseDn: f.baseDn, caCert: f.caCert, startTls: f.startTls !== 'off' });
     else onSave({ method: 'keys', tenantId: f.tenantId, clientId: f.clientId, clientSecret: f.clientSecret, subscriptionId: f.subscriptionId });
   }
 
@@ -298,9 +299,11 @@ function KeysForm({ info, busy, error, regionPicker, regions, canStoreKeys, onBa
       <details className="rounded-xl border border-slate-800 bg-slate-950/50 p-4 text-sm" open>
         <summary className="cursor-pointer font-medium text-slate-200">How to create one (about 2 minutes)</summary>
         <ol className="mt-3 list-inside list-decimal space-y-1.5 text-slate-400">{info.setup.keyHelp.map(s => <li key={s}>{s}</li>)}</ol>
-        <a href={info.setup.consoleUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300">
-          Open the {info.setup.consoleName} <ExternalLink size={13} />
-        </a>
+        {info.setup.consoleUrl && (
+          <a href={info.setup.consoleUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-sky-400 hover:text-sky-300">
+            Open the {info.setup.consoleName} <ExternalLink size={13} />
+          </a>
+        )}
       </details>
 
       {info.provider === 'aws' && (
@@ -329,6 +332,29 @@ function KeysForm({ info, busy, error, regionPicker, regions, canStoreKeys, onBa
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="Organization" hint="As in github.com/your-org"><input className={inputCls} required spellCheck={false} placeholder="your-org" onChange={set('org')} /></Field>
           <Field label="Personal access token"><input className={inputCls} required type="password" autoComplete="off" placeholder="ghp_…" onChange={set('token')} /></Field>
+        </div>
+      )}
+      {info.provider === 'ad' && (
+        <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Domain controller" hint="ldaps://dc01.corp.example.com (port 636) or ldap://… with StartTLS">
+              <input className={inputCls} required spellCheck={false} placeholder="ldaps://dc01.corp.example.com" onChange={set('url')} />
+            </Field>
+            <Field label="Base DN (optional)" hint="Found automatically when empty">
+              <input className={inputCls} spellCheck={false} placeholder="DC=corp,DC=example,DC=com" onChange={set('baseDn')} />
+            </Field>
+            <Field label="Username" hint="e.g. svc-controllayer@corp.example.com or CORP\svc-controllayer">
+              <input className={inputCls} required autoComplete="off" spellCheck={false} onChange={set('username')} />
+            </Field>
+            <Field label="Password"><input className={inputCls} required type="password" autoComplete="off" onChange={set('password')} /></Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" defaultChecked onChange={e => setF({ ...f, startTls: e.target.checked ? 'on' : 'off' })} />
+            Use StartTLS for ldap:// addresses (encrypts the connection)
+          </label>
+          <Field label="Internal CA certificate (optional, PEM)" hint="Only needed if your domain controllers use certificates from your own certificate authority.">
+            <textarea className={`${inputCls} h-20 font-mono text-xs`} spellCheck={false} placeholder="-----BEGIN CERTIFICATE-----" onChange={e => setF({ ...f, caCert: e.target.value })} />
+          </Field>
         </div>
       )}
       {info.provider === 'm365' && (
