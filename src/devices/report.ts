@@ -95,7 +95,8 @@ export function parseDeviceReport(body: unknown): DeviceReport | string {
     autoUpdates: bool(b.autoUpdates),
     daysSinceUpdate: num(b.daysSinceUpdate, 100_000),
     malwareProtection: bool(b.malwareProtection),
-    screenLockMinutes: num(b.screenLockMinutes, 100_000),
+    // Absent = could not be read (undefined); null = no lock is set.
+    screenLockMinutes: 'screenLockMinutes' in b ? num(b.screenLockMinutes, 100_000) : undefined,
     sshRootLogin: bool(b.sshRootLogin),
     sshPasswordAuth: bool(b.sshPasswordAuth),
     rdpEnabled: bool(b.rdpEnabled),

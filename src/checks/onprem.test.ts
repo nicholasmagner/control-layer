@@ -33,6 +33,12 @@ describe('parseDeviceReport', () => {
     expect(typeof r !== 'string' && r.role).toBe('workstation');
     expect(typeof r !== 'string' && r.screenLockMinutes).toBeNull();
   });
+  it('keeps "not readable" apart from "no screen lock"', () => {
+    const r = parseDeviceReport({ machineId: 'abcdefgh', hostname: 'mac', os: 'macos' });
+    expect(typeof r !== 'string' && r.screenLockMinutes).toBeUndefined();
+    const inv = { collectedAt: new Date().toISOString(), devices: [{ ...(r as object), id: 'x', lastSeenAt: new Date().toISOString() }] };
+    expect(run(DEVICE_CHECKS, 'devices.screen_lock', inv)).toBeNull();
+  });
 });
 
 describe('device checks', () => {

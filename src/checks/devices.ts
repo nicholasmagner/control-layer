@@ -102,7 +102,7 @@ export const DEVICE_CHECKS: CheckDef<DevicesInventory>[] = [
     controls: { SOC2: ['CC6.1'], CMMC: ['AC.L1-3.1.1'] },
   }, d => {
     if (d.role !== 'workstation' || d.screenLockMinutes === undefined) return null;
-    if (d.screenLockMinutes === null) return { pass: false, message: 'no automatic screen lock is set.' };
+    if (d.screenLockMinutes === null) return { pass: false, message: 'no automatic screen lock is set or enforced.' };
     return { pass: d.screenLockMinutes > 0 && d.screenLockMinutes <= MAX_SCREEN_LOCK_MINUTES, message: `screen locks after ${d.screenLockMinutes} minute(s).` };
   }),
 
