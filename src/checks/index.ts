@@ -1,4 +1,5 @@
 import type { FrameworkId } from '@/frameworks';
+import { expandControlMap } from '@/frameworks/crosswalk';
 import { AWS_CHECKS } from './aws';
 import { AZURE_CHECKS } from './azure';
 import { GCP_CHECKS } from './gcp';
@@ -9,8 +10,10 @@ import type { CheckDef, Provider } from './types';
 
 export type { CheckDef, Provider, ResourceResult, Severity } from './types';
 
+// Each check is mapped to SOC 2, CMMC and PCI; ISO 27001, HIPAA and GDPR come from the crosswalk.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each provider list is typed against its own inventory
-export const ALL_CHECKS: CheckDef<any>[] = [...AWS_CHECKS, ...GCP_CHECKS, ...AZURE_CHECKS, ...GWORKSPACE_CHECKS, ...M365_CHECKS, ...GITHUB_CHECKS, ...AD_CHECKS, ...DEVICE_CHECKS];
+export const ALL_CHECKS: CheckDef<any>[] = [...AWS_CHECKS, ...GCP_CHECKS, ...AZURE_CHECKS, ...GWORKSPACE_CHECKS, ...M365_CHECKS, ...GITHUB_CHECKS, ...AD_CHECKS, ...DEVICE_CHECKS]
+  .map(c => ({ ...c, controls: expandControlMap(c.controls) }));
 
 export const PROVIDERS: { id: Provider; name: string; kind: 'cloud' | 'identity' | 'code' | 'onprem' }[] = [
   { id: 'aws', name: 'Amazon Web Services', kind: 'cloud' },

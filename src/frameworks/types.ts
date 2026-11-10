@@ -1,4 +1,4 @@
-export type FrameworkId = 'SOC2' | 'CMMC' | 'PCI';
+export type FrameworkId = 'SOC2' | 'ISO27001' | 'HIPAA' | 'GDPR' | 'CMMC' | 'PCI' | 'ISO42001' | 'NISTAIRMF';
 
 export interface ControlDef {
   /** Identifier as auditors know it, e.g. "CC6.1". */

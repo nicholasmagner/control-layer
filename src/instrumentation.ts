@@ -8,9 +8,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
-  const { syncControls } = await import('./assessment/engine');
+  const { backfillCrosswalkLinks, recomputeAssessments, syncControls } = await import('./assessment/engine');
   try {
     await syncControls();
+    // Existing evidence also counts toward frameworks added since it was collected.
+    if ((await backfillCrosswalkLinks()) > 0) await recomputeAssessments();
   } catch (err) {
     console.error('[startup] Could not load the control catalog. Is the database running and migrated?', err);
     return;

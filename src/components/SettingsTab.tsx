@@ -1,9 +1,9 @@
 'use client';
 
-import { Bot, Building2, Check, KeyRound, Trash2, UserPlus } from 'lucide-react';
+import { Bot, Building2, Check, KeyRound, Layers, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, cx, ErrorText, Field, formatDate, inputBase, inputCls, PageHeader } from './ui';
+import { api, Button, Card, cx, ErrorText, Field, formatDate, FRAMEWORK_GROUPS, inputBase, inputCls, PageHeader } from './ui';
 
 const ROLE_HELP: Record<string, string> = {
   admin: 'Everything, including users and settings',
@@ -17,6 +17,7 @@ export default function SettingsTab({ data, refresh }: TabProps) {
     <div className="space-y-8">
       <PageHeader title="Settings" subtitle={isAdmin ? 'Changes apply immediately for everyone in this workspace.' : 'Only admins can change workspace settings.'} />
       <WorkspaceSettings data={data} refresh={refresh} />
+      <FrameworkSettings data={data} refresh={refresh} />
       <AssistantSettings data={data} refresh={refresh} />
       {isAdmin && <Users data={data} refresh={refresh} />}
       <ChangePassword userId={data.user.id} />
@@ -157,6 +158,45 @@ function WorkspaceSettings({ data, refresh }: Pick<TabProps, 'data' | 'refresh'>
           </div>
         )}
       </form>
+    </Card>
+  );
+}
+
+function FrameworkSettings({ data, refresh }: Pick<TabProps, 'data' | 'refresh'>) {
+  const canEdit = data.user.role === 'admin';
+  const [chosen, setChosen] = useState<string[]>(data.settings.frameworks);
+  const { busy, error, saved, save } = useSave(refresh);
+  const dirty = [...chosen].sort().join() !== [...data.settings.frameworks].sort().join();
+  return (
+    <Card className="space-y-5 p-6">
+      <div>
+        <div className="flex items-center gap-2"><Layers size={18} className="text-sky-400" /><h3 className="font-semibold text-slate-100">Frameworks</h3></div>
+        <p className="mt-1 text-sm text-slate-400">Choose what you are working toward. Checks, policies and evidence are mapped once and count toward every framework they apply to.</p>
+      </div>
+      <div className="grid gap-5 md:grid-cols-2">
+        {FRAMEWORK_GROUPS.map(g => (
+          <div key={g.label} className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{g.label}</p>
+            {data.frameworks.filter(f => g.ids.includes(f.id)).map(f => (
+              <label key={f.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-800 p-3 hover:bg-slate-800/30">
+                <input type="checkbox" className="mt-1" disabled={!canEdit} checked={chosen.includes(f.id)}
+                  onChange={e => setChosen(e.target.checked ? [...chosen, f.id] : chosen.filter(x => x !== f.id))} />
+                <span>
+                  <span className="block text-sm font-medium text-slate-200">{f.name}{f.coverage === 'preview' ? ' (preview)' : ''}</span>
+                  <span className="block text-xs text-slate-500">{f.description} {f.controls.length} controls.</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        ))}
+      </div>
+      <ErrorText>{error}</ErrorText>
+      {canEdit && (
+        <div className="flex items-center justify-end gap-3">
+          {saved && !dirty && <span className="flex items-center gap-1 text-sm text-emerald-400"><Check size={14} /> Saved</span>}
+          <Button disabled={busy || !dirty || chosen.length === 0} onClick={() => save({ frameworks: chosen })}>Save frameworks</Button>
+        </div>
+      )}
     </Card>
   );
 }

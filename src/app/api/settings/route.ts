@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { handle, HttpError, requireUser } from '@/auth/session';
 import { testAssistantKey } from '@/assistant/engine';
+import { FRAMEWORK_IDS, isFrameworkId } from '@/frameworks';
 import { logEvent } from '@/lib/events';
 import { readJson } from '@/lib/http';
 import { secretsAvailable } from '@/lib/secrets';
@@ -8,7 +9,7 @@ import { getSettings, saveSettings, SCAN_INTERVAL_CHOICES, settingsView, type Se
 
 const LABELS: Partial<Record<keyof Settings, string>> = {
   organizationName: 'organization name', scanIntervalHours: 'automatic scans', snapshotIntervalDays: 'evidence image interval',
-  timestampAuthorityUrl: 'independent timestamps', remediationEnabled: 'one-click AWS fix', assistantApiKey: 'assistant API key', assistantModel: 'assistant model',
+  timestampAuthorityUrl: 'independent timestamps', remediationEnabled: 'one-click AWS fix', assistantApiKey: 'assistant API key', assistantModel: 'assistant model', frameworks: 'frameworks',
 };
 
 /** Admins change workspace settings; changes apply immediately. */
@@ -44,6 +45,12 @@ export const PUT = handle(async (req: Request) => {
       }
       out.timestampAuthorityUrl = url;
     }
+  }
+  if (body.frameworks !== undefined) {
+    if (!Array.isArray(body.frameworks) || !body.frameworks.length || body.frameworks.some(f => !isFrameworkId(f))) {
+      throw new HttpError(400, 'Choose at least one framework.');
+    }
+    out.frameworks = FRAMEWORK_IDS.filter(id => (body.frameworks as string[]).includes(id));
   }
   if (body.remediationEnabled !== undefined) {
     if (typeof body.remediationEnabled !== 'boolean') throw new HttpError(400, 'remediationEnabled must be true or false.');

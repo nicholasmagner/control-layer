@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { withCrosswalk } from '@/assessment/engine';
 import { prisma } from '@/db/prisma';
 import { logEvent } from '@/lib/events';
 import { chainHash, contentHash, verifyChain, type ChainVerification } from './hash';
@@ -27,6 +28,8 @@ export interface NewEvidence {
 /** Appends an artifact to the evidence library (and the hash chain). */
 export async function appendEvidence(input: NewEvidence) {
   const collectedAt = new Date();
+  // Scan evidence is already mapped by its check; documents and notes also count for crosswalked controls.
+  const controlIds = input.kind === 'automated' || input.kind === 'snapshot' ? input.controlIds : await withCrosswalk(input.controlIds);
   const sha256 = contentHash({ fileData: input.file?.data, content: input.content });
   const base = {
     title: input.title,
@@ -42,7 +45,7 @@ export async function appendEvidence(input: NewEvidence) {
     collectedAt,
     collectedBy: input.collectedBy,
     isSample: !!input.isSample,
-    controls: { create: input.controlIds.map(controlId => ({ controlId })) },
+    controls: { create: controlIds.map(controlId => ({ controlId })) },
   };
 
   if (input.isSample) {

@@ -16,7 +16,7 @@ import PoliciesTab from './PoliciesTab';
 import SettingsTab from './SettingsTab';
 import TrustTab from './TrustTab';
 import UploadEvidenceModal from './UploadEvidenceModal';
-import { api, Button, cx } from './ui';
+import { api, Button, cx, FRAMEWORK_GROUPS } from './ui';
 
 export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'devices' | 'evidence' | 'trust' | 'connectors' | 'assistant' | 'settings';
 
@@ -26,6 +26,7 @@ export interface TabProps {
   navigate: (tab: TabId, opts?: { controlId?: string }) => void;
   refresh: () => void;
   openUpload: (controlIds?: string[]) => void;
+  setFramework: (id: string) => void;
   focusControl?: string;
 }
 
@@ -35,7 +36,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
   const router = useRouter();
   const [tab, setTab] = useState<TabId>(TAB_IDS.includes(initialTab as TabId) ? (initialTab as TabId) : 'dashboard');
   const [frameworkId, setFrameworkId] = useState(
-    data.frameworks.some(f => f.id === initialFramework) ? (initialFramework as string) : data.frameworks[0].id,
+    data.frameworks.some(f => f.id === initialFramework) ? (initialFramework as string) : (data.settings.frameworks[0] ?? data.frameworks[0].id),
   );
   const [focusControl, setFocusControl] = useState<string | undefined>();
   const [upload, setUpload] = useState<string[] | null>(null);
@@ -68,7 +69,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  const props: TabProps = { data, frameworkId, navigate, refresh, openUpload: ids => setUpload(ids ?? []), focusControl };
+  const props: TabProps = { data, frameworkId, navigate, refresh, openUpload: ids => setUpload(ids ?? []), setFramework: setFrameworkId, focusControl };
 
   async function signOut() {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -87,9 +88,14 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
           <label className="px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500" htmlFor="framework">Framework</label>
           <select id="framework" value={frameworkId} onChange={e => setFrameworkId(e.target.value)}
             className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-500">
-            {data.frameworks.map(f => (
-              <option key={f.id} value={f.id}>{f.name}{f.coverage === 'preview' ? ' (preview)' : ''}</option>
-            ))}
+            {FRAMEWORK_GROUPS.map(g => {
+              const list = data.frameworks.filter(f => g.ids.includes(f.id) && (data.settings.frameworks.includes(f.id) || f.id === frameworkId));
+              return list.length ? (
+                <optgroup key={g.label} label={g.label}>
+                  {list.map(f => <option key={f.id} value={f.id}>{f.name}{f.coverage === 'preview' ? ' (preview)' : ''}</option>)}
+                </optgroup>
+              ) : null;
+            })}
           </select>
         </div>
 

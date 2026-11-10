@@ -4,6 +4,7 @@ import { recomputeAssessments } from '@/assessment/engine';
 import { prisma } from '@/db/prisma';
 import { anchorChain, appendEvidence } from '@/evidence/store';
 import { sha256Hex } from '@/evidence/hash';
+import { expandControlKeys } from '@/frameworks/crosswalk';
 import { logEvent } from '@/lib/events';
 import { getSettings } from '@/lib/settings';
 import { policyHtmlDocument } from './markdown';
@@ -184,7 +185,7 @@ export async function publishPolicy(policyId: string, actor: string) {
     kind: 'upload',
     source: `policy:${policy.slug}`,
     file: { name: `${policy.slug}-v${version}.html`, mimeType: 'text/html', data: new TextEncoder().encode(html) },
-    controlIds: await controlRowIds(Array.isArray(policy.controls) ? (policy.controls as string[]) : []),
+    controlIds: await controlRowIds(expandControlKeys(Array.isArray(policy.controls) ? (policy.controls as string[]) : [])),
     collectedBy: actor,
   });
   const created = await prisma.policyVersion.create({

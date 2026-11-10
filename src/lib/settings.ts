@@ -20,6 +20,8 @@ export interface Settings {
   remediationEnabled: boolean;
   assistantApiKey: string | null;
   assistantModel: string | null;
+  /** Frameworks the company is working toward, shown in the framework picker. */
+  frameworks: string[];
 }
 
 export type SettingKey = keyof Settings;
@@ -60,6 +62,7 @@ const DEFAULTS: Settings = {
   remediationEnabled: false,
   assistantApiKey: null,
   assistantModel: null,
+  frameworks: ['SOC2', 'ISO27001', 'HIPAA', 'GDPR', 'CMMC', 'PCI', 'ISO42001', 'NISTAIRMF'],
 };
 
 type Loaded = { settings: Settings; sources: Record<SettingKey, Source>; at: number };
@@ -117,6 +120,7 @@ export async function settingsView() {
     timestampsEnabled: s.timestampAuthorityUrl !== null,
     timestampAuthorityUrl: s.timestampAuthorityUrl ?? DEFAULT_TSA_URL,
     remediationEnabled: s.remediationEnabled,
+    frameworks: s.frameworks,
     assistant: {
       configured: !!s.assistantApiKey,
       keyHint: s.assistantApiKey ? `…${s.assistantApiKey.slice(-4)}` : null,

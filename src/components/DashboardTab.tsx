@@ -26,7 +26,7 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-export default function DashboardTab({ data, frameworkId, navigate, refresh, openUpload }: TabProps) {
+export default function DashboardTab({ data, frameworkId, navigate, refresh, openUpload, setFramework }: TabProps) {
   const fw = data.frameworks.find(f => f.id === frameworkId)!;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +77,30 @@ export default function DashboardTab({ data, frameworkId, navigate, refresh, ope
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => navigate('connectors')}><Cloud size={16} /> Connect cloud</Button>
             <Button onClick={loadSample} disabled={loading}>{loading ? 'Loading…' : 'Load sample data'}</Button>
+          </div>
+        </Card>
+      )}
+
+      {data.settings.frameworks.length > 1 && (
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-100">All your frameworks</h3>
+            <span className="text-xs text-slate-500">One piece of evidence counts everywhere it applies.</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {data.frameworks.filter(f => data.settings.frameworks.includes(f.id)).map(f => (
+              <button key={f.id} onClick={() => setFramework(f.id)}
+                className={cx('rounded-lg border p-3 text-left transition-colors hover:border-sky-500/50', f.id === frameworkId ? 'border-sky-500/60 bg-sky-500/5' : 'border-slate-800 bg-slate-950/40')}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-slate-200">{f.shortName}</span>
+                  <span className={cx('text-lg font-bold', f.score >= 80 ? 'text-emerald-400' : f.score >= 50 ? 'text-amber-400' : 'text-red-400')}>{f.score}%</span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                  <div className={cx('h-full', f.score >= 80 ? 'bg-emerald-500' : f.score >= 50 ? 'bg-amber-500' : 'bg-red-500')} style={{ width: `${f.score}%` }} />
+                </div>
+                <p className="mt-1.5 text-[11px] text-slate-500">{f.counts['Met'] ?? 0} of {f.controls.length - (f.counts['Not Applicable'] ?? 0)} controls met</p>
+              </button>
+            ))}
           </div>
         </Card>
       )}

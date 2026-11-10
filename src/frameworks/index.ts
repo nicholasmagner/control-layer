@@ -1,12 +1,17 @@
 import { SOC2 } from './soc2';
 import { CMMC } from './cmmc';
+import { GDPR } from './gdpr';
+import { HIPAA } from './hipaa';
+import { ISO27001 } from './iso27001';
+import { ISO42001 } from './iso42001';
+import { NIST_AI_RMF } from './nistairmf';
 import { PCI } from './pci';
 import type { ControlDef, FrameworkDef, FrameworkId } from './types';
 
 export type { ControlDef, FrameworkDef, FrameworkId } from './types';
 
 /** Order here is the order shown in the UI. */
-export const FRAMEWORKS: FrameworkDef[] = [SOC2, CMMC, PCI];
+export const FRAMEWORKS: FrameworkDef[] = [SOC2, ISO27001, HIPAA, GDPR, CMMC, PCI, ISO42001, NIST_AI_RMF];
 
 export const FRAMEWORK_IDS = FRAMEWORKS.map(f => f.id);
 

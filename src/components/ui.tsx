@@ -167,3 +167,11 @@ export function ImagePreview({ id, title, onClose }: { id: string; title: string
     </Modal>
   );
 }
+
+/** How frameworks are grouped in pickers. */
+export const FRAMEWORK_GROUPS: { label: string; ids: string[] }[] = [
+  { label: 'Security', ids: ['SOC2', 'ISO27001'] },
+  { label: 'Privacy and health data', ids: ['HIPAA', 'GDPR'] },
+  { label: 'Government and payments', ids: ['CMMC', 'PCI'] },
+  { label: 'AI governance', ids: ['ISO42001', 'NISTAIRMF'] },
+];

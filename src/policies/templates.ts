@@ -63,7 +63,7 @@ This policy applies to all employees, contractors and other people with access t
 
 ## Program elements
 {{organization}} maintains the following policies, which all personnel must follow where they apply:
-Acceptable Use, Access Control, Change Management, Incident Response, Business Continuity and Disaster Recovery, Data Classification and Retention, Encryption, Vendor Management, Risk Management, Human Resources Security, Code of Conduct, Asset and Device Management, and Logging and Monitoring.
+Acceptable Use, Access Control, Change Management, Incident Response, Business Continuity and Disaster Recovery, Data Classification and Retention, Encryption, Vendor Management, Risk Management, Human Resources Security, Code of Conduct, Asset and Device Management, Logging and Monitoring, Privacy and Data Protection, Responsible AI, and AI Acceptable Use.
 
 ## Monitoring and review
 Compliance with these policies is monitored continuously through automated checks and periodic reviews. Policies are reviewed at least annually and after significant changes to the business or technology, and changes are approved by the policy owner.
@@ -264,7 +264,7 @@ This plan, including a backup restore, is tested at least annually.
     slug: 'data-classification',
     title: 'Data Classification and Retention Policy',
     summary: 'How data is classified, handled, kept and securely deleted.',
-    controls: ['SOC2:C1.1', 'SOC2:C1.2', 'SOC2:CC6.5', 'SOC2:CC6.7', 'CMMC:MP.L1-3.8.3', 'CMMC:AC.L1-3.1.22', 'PCI:3.5.1', 'PCI:9.4.7'],
+    controls: ['SOC2:C1.1', 'SOC2:C1.2', 'SOC2:CC6.5', 'SOC2:CC6.7', 'CMMC:MP.L1-3.8.3', 'CMMC:AC.L1-3.1.22', 'PCI:3.5.1', 'PCI:9.4.7', 'ISO27001:5.12', 'ISO27001:5.13'],
     reviewIntervalDays: 365,
     requiresSignoff: true,
     body: `${header('Data Classification and Retention Policy')}
@@ -532,6 +532,141 @@ To record security-relevant activity so that problems and attacks are detected q
 ## Clock synchronization
 Systems use a trusted time source so that logs from different systems can be correlated.
 `,
+  },
+  {
+    slug: 'responsible-ai',
+    title: 'Responsible AI Policy',
+    summary: 'How the company builds, buys and uses AI systems responsibly: inventory, impact assessment, data, oversight and incidents.',
+    controls: ['ISO42001:A.2.2', 'ISO42001:A.2.3', 'ISO42001:A.2.4', 'ISO42001:A.3.2', 'ISO42001:A.3.3', 'ISO42001:A.4.2', 'ISO42001:A.5.2', 'ISO42001:A.5.3', 'ISO42001:A.5.4', 'ISO42001:A.6.1.2', 'ISO42001:A.6.1.3', 'ISO42001:A.6.2.4', 'ISO42001:A.6.2.6', 'ISO42001:A.7.2', 'ISO42001:A.7.4', 'ISO42001:A.8.2', 'ISO42001:A.8.4', 'ISO42001:A.10.2', 'ISO42001:A.10.3', 'NISTAIRMF:GOVERN 1', 'NISTAIRMF:GOVERN 2', 'NISTAIRMF:GOVERN 4', 'NISTAIRMF:GOVERN 6', 'NISTAIRMF:MAP 1', 'NISTAIRMF:MAP 2', 'NISTAIRMF:MAP 5', 'NISTAIRMF:MEASURE 2', 'NISTAIRMF:MEASURE 3', 'NISTAIRMF:MANAGE 1', 'NISTAIRMF:MANAGE 2', 'NISTAIRMF:MANAGE 3', 'NISTAIRMF:MANAGE 4', 'GDPR:Art. 35', 'GDPR:Art. 25'],
+    reviewIntervalDays: 365,
+    requiresSignoff: false,
+    body: `${header('Responsible AI Policy')}
+## Purpose
+{{organization}} uses artificial intelligence (AI) to serve customers and work more effectively. This policy makes sure every AI system we build, buy or use is safe, secure, fair, transparent and accountable, and that its risks are understood and managed.
+
+## Scope
+"AI system" means any software that generates content, predictions, recommendations or decisions using machine learning or large language models. This includes AI features in our own product, AI services we call through an API, and AI tools personnel use at work (for example chat assistants, coding assistants and meeting note-takers).
+
+## Principles
+1. **Human oversight.** People remain accountable for decisions. AI output that affects customers, employees or legal obligations is reviewed by a person before it takes effect.
+2. **Transparency.** We tell users when they interact with AI or see AI-generated content, and document what each AI system is for and its known limits.
+3. **Privacy and security.** AI systems follow our security and data protection policies. Confidential and personal data is only used with approved AI systems and for documented purposes.
+4. **Fairness.** We test for, and reduce, unfair outcomes for individuals or groups.
+5. **Reliability.** We evaluate AI systems before release and monitor them in use.
+
+## AI system inventory
+{{owner}} keeps an inventory of AI systems with, for each: purpose and intended use, owner, vendor or model, data it uses, who is affected, risk level, and date of the last impact assessment. Vendors that provide AI are reviewed under the Vendor Management Policy.
+
+## Risk levels and impact assessment
+Before an AI system is put into use, and when it changes significantly, the owner assesses its impact:
+| Level | Examples | Requirements |
+| :--- | :--- | :--- |
+| High | Affects access to jobs, credit, health, housing or legal rights; processes sensitive personal data at scale | Written impact assessment, approval by leadership, human review of every decision, annual re-assessment |
+| Medium | Customer-facing generated content; internal decisions about people | Impact assessment, human review, monitoring |
+| Low | Internal productivity with no personal or confidential data | Inventory entry and approved tool |
+
+AI uses that are prohibited by law where we operate (for example under the EU AI Act) are not allowed.
+
+## Data
+- Training, fine-tuning and prompt data is obtained lawfully, with its source recorded.
+- Customer data is not used to train models unless the contract allows it and customers have been told.
+- Vendors must not use our or our customers' data to train their models unless we have agreed to it in writing.
+
+## Development, testing and monitoring
+- AI features are evaluated before release for accuracy, safety, security (including prompt injection) and fairness, and the results are recorded.
+- AI systems in production are monitored for errors, misuse and drift, and log enough to investigate issues.
+- Every AI system has a way to switch it off or fall back to a non-AI process.
+
+## Incidents and concerns
+Anyone can report a concern about an AI system to {{owner}}. Harmful or unexpected AI behavior is handled under the Incident Response Plan, and affected users are informed where appropriate.
+
+## Review
+This policy and the AI inventory are reviewed at least annually and when laws or our use of AI change significantly.
+${enforcement}`,
+  },
+  {
+    slug: 'ai-acceptable-use',
+    title: 'AI Acceptable Use Policy',
+    summary: 'Simple rules for personnel using AI tools at work: approved tools, what data may be shared, and checking output.',
+    controls: ['ISO42001:A.9.2', 'ISO42001:A.9.3', 'ISO42001:A.9.4', 'ISO42001:A.4.4', 'NISTAIRMF:GOVERN 1', 'NISTAIRMF:GOVERN 4', 'SOC2:CC2.2', 'SOC2:C1.1'],
+    reviewIntervalDays: 365,
+    requiresSignoff: true,
+    body: `${header('AI Acceptable Use Policy')}
+## Purpose
+AI tools can make us faster and better at our work. Used carelessly, they can leak confidential data, produce wrong answers or infringe rights. These rules let everyone use AI with confidence.
+
+## Approved tools
+- Use only AI tools approved by {{owner}}. The list of approved tools, and what data each may be used with, is published internally.
+- Business accounts are used for approved tools (not personal accounts), so that data protection terms apply.
+- Ask {{owner}} before trying a new AI tool, browser extension or plugin with company data.
+
+## What you may share
+| Data | Approved AI tools | Other AI tools |
+| :--- | :--- | :--- |
+| Public information | Yes | Yes |
+| Internal information | Yes | No |
+| Confidential information, source code | Only tools approved for it | No |
+| Customer data, personal data, credentials, secrets | Only tools approved for it, and only when needed | Never |
+
+## Checking the output
+- You are responsible for anything you produce with AI. Check facts, code and calculations before using them.
+- Do not present AI output as fact to customers without checking it.
+- Review AI-generated code like any other code; it goes through normal code review.
+- Do not use AI output in a way that could infringe copyright or other rights.
+
+## Never
+- Use AI to make final decisions about people (hiring, performance, customer eligibility) without human review.
+- Use AI to deceive people, impersonate others, or create harmful content.
+- Paste passwords, API keys or other secrets into any AI tool.
+
+## Questions and incidents
+If you shared data with an AI tool by mistake, report it to {{owner}} right away; it is handled like any other security incident.
+${enforcement}`,
+  },
+  {
+    slug: 'privacy-data-protection',
+    title: 'Privacy and Data Protection Policy',
+    summary: 'How personal data (including health data) is collected, used, shared, protected and deleted, and how people\'s rights are handled.',
+    controls: ['GDPR:Art. 5', 'GDPR:Art. 6', 'GDPR:Art. 7', 'GDPR:Art. 12-14', 'GDPR:Art. 15-22', 'GDPR:Art. 24', 'GDPR:Art. 25', 'GDPR:Art. 28', 'GDPR:Art. 30', 'GDPR:Art. 33', 'GDPR:Art. 34', 'GDPR:Art. 35', 'GDPR:Art. 44-49', 'HIPAA:164.316(b)(1)', 'ISO27001:5.34', 'SOC2:C1.1', 'SOC2:CC2.3'],
+    reviewIntervalDays: 365,
+    requiresSignoff: true,
+    body: `${header('Privacy and Data Protection Policy')}
+## Purpose
+{{organization}} respects the privacy of customers, users and employees. This policy sets out how we handle personal data in line with data protection laws such as the GDPR and, where applicable, HIPAA.
+
+## Principles
+We process personal data:
+1. Lawfully, fairly and transparently, with a documented lawful basis for each purpose.
+2. Only for specified purposes, and not in ways incompatible with them.
+3. Only as much as needed (data minimization).
+4. Accurately, correcting it when needed.
+5. Only as long as needed, following the Data Classification and Retention Policy.
+6. Securely, following our security policies.
+
+## Records of processing
+{{owner}} keeps a record of processing activities: what personal data we hold, why, the lawful basis, who it is shared with (including vendors), where it is stored and transferred, and how long it is kept.
+
+## Transparency
+Our privacy notice explains what we collect and why, who we share it with, how long we keep it, and people's rights. It is reviewed whenever our processing changes.
+
+## Individuals' rights
+Requests to access, correct, delete, restrict, port or object to the use of personal data are logged and answered within one month (extendable where the law allows). Identity is verified before data is released.
+
+## Vendors and transfers
+Vendors that process personal data for us sign a data processing agreement (and a business associate agreement for health data). Personal data is transferred outside the EEA only with appropriate safeguards such as standard contractual clauses.
+
+## Privacy by design
+New products, features and AI systems are reviewed for privacy before launch. A data protection impact assessment is done for high-risk processing, such as large-scale sensitive data, monitoring, profiling or new technologies.
+
+## Health information
+Where we handle protected health information (PHI), access is limited to the minimum necessary, all access is logged, and the HIPAA Security Rule safeguards apply.
+
+## Breaches
+Personal data breaches are handled under the Incident Response Plan. Where required, we notify the supervisory authority within 72 hours and affected individuals without undue delay; for PHI, we follow the HIPAA Breach Notification Rule.
+
+## Training
+Everyone who handles personal data completes privacy training when they join and annually.
+${enforcement}`,
   },
 ];
 

@@ -1,6 +1,7 @@
 import { ALL_CHECKS, PROVIDER_IDS } from '@/checks';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, getControlDef, type FrameworkId } from '@/frameworks';
+import { expandControlKeys } from '@/frameworks/crosswalk';
 import { computeStatus, type CheckOutcome } from './status';
 
 /** Inserts / updates the Control table from the framework catalog. */
@@ -14,6 +15,39 @@ export async function syncControls() {
       });
     }
   }
+}
+
+/**
+ * Control row ids plus their crosswalked equivalents (SOC 2 -> ISO 27001,
+ * HIPAA, GDPR), so one piece of evidence counts everywhere it applies.
+ */
+export async function withCrosswalk(controlIds: string[]): Promise<string[]> {
+  if (!controlIds.length) return controlIds;
+  const rows = await prisma.control.findMany({ where: { id: { in: controlIds } }, select: { framework: true, controlId: true } });
+  const extra = expandControlKeys(rows.map(r => `${r.framework}:${r.controlId}`))
+    .map(k => { const i = k.indexOf(':'); return { framework: k.slice(0, i), controlId: k.slice(i + 1) }; });
+  if (extra.length === rows.length) return controlIds;
+  const targets = await prisma.control.findMany({ where: { OR: extra }, select: { id: true } });
+  return [...new Set([...controlIds, ...targets.map(t => t.id)])];
+}
+
+/** Links existing evidence to crosswalked controls (after new frameworks are added). Idempotent. */
+export async function backfillCrosswalkLinks() {
+  const soc2 = await prisma.control.findMany({ where: { framework: 'SOC2' }, select: { id: true, controlId: true } });
+  const all = await prisma.control.findMany({ select: { id: true, framework: true, controlId: true } });
+  const byKey = new Map(all.map(c => [`${c.framework}:${c.controlId}`, c.id]));
+  let added = 0;
+  for (const c of soc2) {
+    const targets = expandControlKeys([`SOC2:${c.controlId}`]).map(k => byKey.get(k)).filter((x): x is string => !!x && x !== c.id);
+    if (!targets.length) continue;
+    const links = await prisma.evidenceControl.findMany({ where: { controlId: c.id }, select: { evidenceId: true } });
+    if (!links.length) continue;
+    const res = await prisma.evidenceControl.createMany({
+      data: links.flatMap(l => targets.map(t => ({ evidenceId: l.evidenceId, controlId: t }))), skipDuplicates: true,
+    });
+    added += res.count;
+  }
+  return added;
 }
 
 /**
