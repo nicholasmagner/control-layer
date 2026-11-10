@@ -68,7 +68,7 @@ try {
   const images = sample.summaries.reduce((n, s) => n + s.imagesCreated, 0);
   const warnings = sample.summaries.flatMap(s => s.warnings);
   if (images < 51 || warnings.length) throw new Error(`expected at least 51 evidence images, got ${images}; warnings: ${warnings.join(' | ')}`);
-  console.log('✓ sample data loaded, ${images} evidence images rendered');
+  console.log(`✓ sample data loaded, ${images} evidence images rendered`);
 
   res = await call('GET', '/api/evidence/export?framework=SOC2');
   const zip = Buffer.from(await res.arrayBuffer());
