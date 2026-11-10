@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/db/prisma';
 
@@ -22,10 +22,13 @@ export async function createSession(userId: string) {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await prisma.session.create({ data: { tokenHash: hashToken(token), userId, expiresAt } });
+  // Secure (HTTPS-only) whenever the request arrived over HTTPS, e.g. behind a
+  // TLS-terminating proxy. Plain-HTTP installs on a local network still work.
+  const secure = (await headers()).get('x-forwarded-proto') === 'https' || process.env.SECURE_COOKIES === 'true';
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production' && process.env.INSECURE_COOKIES !== 'true',
+    secure,
     path: '/',
     expires: expiresAt,
   });

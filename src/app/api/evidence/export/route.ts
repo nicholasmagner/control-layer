@@ -33,18 +33,15 @@ export const GET = handle(async (req: Request) => {
   const to = new Date(toStart.getTime() + 86_400_000 - 1); // inclusive end of day
   if (from > to) throw new HttpError(400, '"from" must be before "to".');
 
-  // Sample evidence is only exported when the workspace has nothing real.
-  const realEvidence = await prisma.evidenceArtifact.count({ where: { isSample: false } });
-  const isSample = realEvidence === 0;
+  // While sample data is loaded, statuses mix sample and real data, so the
+  // package includes both and is labeled as sample (not for audit use).
+  const isSample = (await prisma.checkRun.count({ where: { isSample: true } })) > 0;
 
   const controls = await prisma.control.findMany({
     where: { framework: framework.id },
     include: {
       scores: { orderBy: { evaluatedAt: 'desc' }, take: 1 },
-      evidence: {
-        where: { evidence: { isSample } },
-        include: { evidence: true },
-      },
+      evidence: { include: { evidence: true } },
     },
   });
   const byId = new Map(controls.map(c => [c.controlId, c]));
@@ -73,7 +70,7 @@ export const GET = handle(async (req: Request) => {
 
   const [findings, events, chain] = await Promise.all([
     prisma.finding.findMany({
-      where: { isSample, createdAt: { lte: to }, OR: [{ resolvedAt: null }, { resolvedAt: { gte: from } }] },
+      where: { createdAt: { lte: to }, OR: [{ resolvedAt: null }, { resolvedAt: { gte: from } }] },
       orderBy: { createdAt: 'asc' },
     }),
     prisma.eventLog.findMany({ where: { timestamp: { gte: from, lte: to } }, orderBy: { timestamp: 'asc' } }),

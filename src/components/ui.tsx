@@ -116,7 +116,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
   );
 }
 
-export const inputCls = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-sky-500';
+export const inputBase = 'rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-sky-500';
+export const inputCls = `${inputBase} w-full`;
 
 export function ErrorText({ children }: { children: ReactNode }) {
   if (!children) return null;

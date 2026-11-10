@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Wrench } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FindingView } from '@/lib/data';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, cx, Empty, ErrorText, Field, formatDate, inputCls, Modal, PageHeader, Pill, PROVIDER_LABEL, SeverityBadge } from './ui';
+import { api, Button, Card, cx, Empty, ErrorText, Field, formatDate, inputBase, inputCls, Modal, PageHeader, Pill, PROVIDER_LABEL, SeverityBadge } from './ui';
 
 const STATUSES = ['Open', 'Accepted', 'Resolved'] as const;
 const SEVERITY_RANK: Record<string, number> = { High: 0, Medium: 1, Low: 2 };
@@ -36,7 +36,7 @@ export default function FindingsTab({ data, refresh, navigate }: TabProps) {
             {s === 'Accepted' ? 'Risk accepted' : s} <span className="ml-1 text-xs opacity-70">{counts[s]}</span>
           </button>
         ))}
-        <select className={cx(inputCls, 'ml-auto w-auto')} value={provider} onChange={e => setProvider(e.target.value)}>
+        <select className={cx(inputBase, 'ml-auto w-auto')} value={provider} onChange={e => setProvider(e.target.value)}>
           <option value="all">All clouds</option>
           {Object.entries(PROVIDER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>

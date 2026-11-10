@@ -3,7 +3,7 @@
 import { KeyRound, Trash2, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, ErrorText, Field, formatDate, inputCls, PageHeader } from './ui';
+import { api, Button, Card, ErrorText, Field, formatDate, inputBase, inputCls, PageHeader } from './ui';
 
 const ROLE_HELP: Record<string, string> = {
   admin: 'Everything, including users and settings',
@@ -24,7 +24,7 @@ export default function SettingsTab({ data, refresh }: TabProps) {
           <li>Organization name: <span className="text-slate-200">{data.organization}</span> <span className="text-slate-600">(ORGANIZATION_NAME)</span></li>
           <li>Automatic scans: <span className="text-slate-200">{data.features.scanIntervalHours ? `every ${data.features.scanIntervalHours} hour(s)` : 'off'}</span> <span className="text-slate-600">(SCAN_INTERVAL_HOURS)</span></li>
           <li>One-click AWS remediation: <span className="text-slate-200">{data.features.remediation ? 'on' : 'off'}</span> <span className="text-slate-600">(ENABLE_AWS_REMEDIATION)</span></li>
-          <li>Assistant: <span className="text-slate-200">{data.features.assistant ? 'on' : 'off'}</span> <span className="text-slate-600">(ANTHROPIC_API_KEY)</span></li>
+          <li>Assistant: <span className="text-slate-200">{data.features.assistant ? 'on' : 'off'}</span> <span className="text-slate-600">(ASSISTANT_API_KEY)</span></li>
         </ul>
       </Card>
     </div>
@@ -83,7 +83,7 @@ function Users({ data, refresh }: Pick<TabProps, 'data' | 'refresh'>) {
               <tr key={u.id}>
                 <td className="py-2.5"><span className="text-slate-200">{u.name}</span><br /><span className="text-xs text-slate-500">{u.email}</span></td>
                 <td>
-                  <select className={`${inputCls} w-auto py-1 text-xs`} value={u.role} disabled={u.id === data.user.id}
+                  <select className={`${inputBase} w-auto py-1 text-xs`} value={u.role} disabled={u.id === data.user.id}
                     onChange={e => update(u.id, { role: e.target.value })}>
                     <option value="admin">Admin</option><option value="member">Member</option><option value="auditor">Auditor</option>
                   </select>

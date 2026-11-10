@@ -36,14 +36,14 @@ describe('sanitizeContext', () => {
 
 describe('Assistant when no API key is configured', () => {
   beforeEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ASSISTANT_API_KEY;
   });
 
   it('generateExplanation degrades to a deterministic message instead of throwing', async () => {
     const { Assistant } = await import('./engine');
     const result = await Assistant.generateExplanation('CC6.1', [{ a: 1 }], [{ b: 2 }]);
     expect(result).toContain('not configured');
-    expect(result).toContain('ANTHROPIC_API_KEY');
+    expect(result).toContain('ASSISTANT_API_KEY');
   });
 
   it('chat degrades to a deterministic message instead of throwing', async () => {

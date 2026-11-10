@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 /**
  * Optional assistant that explains control status and drafts audit narrative.
- * It is disabled unless ANTHROPIC_API_KEY is set.
+ * It is disabled unless ASSISTANT_API_KEY is set.
  *
  * Guardrails:
  * - No tools are passed to the model, so it can only return text. It cannot
@@ -19,15 +19,15 @@ const MAX_USER_MESSAGE_LENGTH = 4000;
 const SECRET_KEY_PATTERN = /secret|password|token|apikey|api_key|credential|private_?key/i;
 
 export function assistantEnabled(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY;
+  return !!process.env.ASSISTANT_API_KEY;
 }
 
 let client: Anthropic | null = null;
 let resolvedModel: string | null = null;
 
 function getClient(): Anthropic | null {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  if (!process.env.ASSISTANT_API_KEY) return null;
+  if (!client) client = new Anthropic({ apiKey: process.env.ASSISTANT_API_KEY });
   return client;
 }
 
@@ -79,7 +79,7 @@ Rules, in priority order:
 5. Reply in plain prose without Markdown headings or bold text. Keep answers concise and practical for a small team.`;
 
 function notConfigured(reason: string): string {
-  return `The assistant is not configured (${reason}). Set ANTHROPIC_API_KEY to enable it. Meanwhile, the Controls tab shows what each control needs and the Findings tab lists what to fix first.`;
+  return `The assistant is not configured (${reason}). Set ASSISTANT_API_KEY to enable it. Meanwhile, the Controls tab shows what each control needs and the Findings tab lists what to fix first.`;
 }
 
 async function complete(messages: Anthropic.MessageParam[]): Promise<string> {

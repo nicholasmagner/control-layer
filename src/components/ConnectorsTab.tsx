@@ -75,7 +75,7 @@ export default function ConnectorsTab({ data, refresh }: TabProps) {
                 {last?.status === 'error' && last.error && <p className="mt-2 break-words text-xs text-red-300">{last.error}</p>}
               </div>
 
-              {result && 'error' in result && result.error && <div className="mt-3"><ErrorText>{result.error}</ErrorText></div>}
+              {result && 'error' in result && result.error && last?.error !== result.error && <div className="mt-3"><ErrorText>{result.error}</ErrorText></div>}
               {result && 'ok' in result && result.ok && (
                 <div className="mt-3 rounded-lg bg-slate-950/60 p-3 text-xs text-slate-300">
                   <p>{result.checksEvaluated} checks · {result.passed} passing · <span className="text-red-400">{result.failed} failing</span> resources</p>

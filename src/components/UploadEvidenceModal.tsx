@@ -3,7 +3,7 @@
 import { Upload } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import type { AppData } from '@/lib/data';
-import { Button, cx, ErrorText, Field, formatBytes, inputCls, Modal } from './ui';
+import { Button, cx, ErrorText, Field, formatBytes, inputBase, inputCls, Modal } from './ui';
 
 export default function UploadEvidenceModal({ data, frameworkId, preselected, onClose, onDone }: {
   data: AppData;
@@ -78,10 +78,10 @@ export default function UploadEvidenceModal({ data, frameworkId, preselected, on
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="text-sm font-medium text-slate-300">Supports controls <span className="text-slate-500">({selected.size} selected)</span></span>
             <div className="flex gap-2">
-              <select className={cx(inputCls, 'w-auto py-1.5 text-xs')} value={fwFilter} onChange={e => setFwFilter(e.target.value)}>
+              <select className={cx(inputBase, 'w-auto py-1.5 text-xs')} value={fwFilter} onChange={e => setFwFilter(e.target.value)}>
                 {data.frameworks.map(f => <option key={f.id} value={f.id}>{f.shortName}</option>)}
               </select>
-              <input className={cx(inputCls, 'w-40 py-1.5 text-xs')} placeholder="Filter" value={query} onChange={e => setQuery(e.target.value)} />
+              <input className={cx(inputBase, 'w-40 py-1.5 text-xs')} placeholder="Filter" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
           </div>
           <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-lg border border-slate-800 p-2">

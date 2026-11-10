@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Produces a self-contained server in .next/standalone for the Docker image.
-  output: 'standalone',
+  // The Docker image sets NEXT_OUTPUT=standalone to get a self-contained server.
+  output: process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   // Don't auto-generate editor tooling files into the project root.
   agentRules: false,
   async headers() {

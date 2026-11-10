@@ -3,7 +3,7 @@
 import { Download, FileText, Fingerprint, FolderArchive, Search, ShieldAlert, ShieldCheck, StickyNote, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { TabProps } from './AppShell';
-import { api, Button, Card, cx, Empty, ErrorText, Field, formatBytes, formatDate, inputCls, PageHeader, Pill } from './ui';
+import { api, Button, Card, cx, Empty, ErrorText, Field, formatBytes, formatDate, inputBase, inputCls, PageHeader, Pill } from './ui';
 
 interface Verification { ok: boolean; checked: number; legacy: number; head: string | null; problem?: { seq: number; reason: string } }
 
@@ -53,7 +53,7 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="p-6 lg:col-span-2">
           <div className="flex items-start gap-3">
-            <FolderArchive className="mt-0.5 text-sky-400" />
+            <FolderArchive className="mt-0.5 shrink-0 text-sky-400" />
             <div>
               <h3 className="font-semibold text-slate-100">Audit evidence package</h3>
               <p className="mt-1 text-sm text-slate-400">
@@ -82,7 +82,7 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
 
         <Card className="p-6">
           <div className="flex items-start gap-3">
-            <Fingerprint className="mt-0.5 text-sky-400" />
+            <Fingerprint className="mt-0.5 shrink-0 text-sky-400" />
             <div>
               <h3 className="font-semibold text-slate-100">Integrity check</h3>
               <p className="mt-1 text-sm text-slate-400">Every record is fingerprinted when collected and chained to the one before it. Any later edit or deletion shows up here.</p>
@@ -105,13 +105,13 @@ export default function EvidenceTab({ data, frameworkId, openUpload }: TabProps)
       </div>
 
       <section className="space-y-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <h3 className="flex-1 font-semibold text-slate-100">Evidence library <span className="text-sm font-normal text-slate-500">({data.evidenceTotal})</span></h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="mr-auto font-semibold text-slate-100">Evidence library <span className="text-sm font-normal text-slate-500">({data.evidenceTotal})</span></h3>
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input className={cx(inputCls, 'w-64 pl-8')} placeholder="Search title or control" value={query} onChange={e => setQuery(e.target.value)} />
+            <input className={cx(inputBase, 'w-64 pl-8')} placeholder="Search title or control" value={query} onChange={e => setQuery(e.target.value)} />
           </div>
-          <select className={cx(inputCls, 'w-auto')} value={kind} onChange={e => setKind(e.target.value)}>
+          <select className={cx(inputBase, 'w-auto')} value={kind} onChange={e => setKind(e.target.value)}>
             <option value="all">All evidence</option>
             <option value="documents">Documents &amp; notes</option>
             <option value="automated">Scan results</option>
