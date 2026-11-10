@@ -321,3 +321,44 @@ model PolicyAcknowledgment {
 
   @@unique([versionId, personId])
 }
+
+// ---------------------------------------------------------------------------
+// Trust Center: a public page about the company's security, with documents
+// that are public or shared on request (after accepting an NDA).
+// ---------------------------------------------------------------------------
+
+model TrustDocument {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  fileData    Bytes
+  sha256      String
+  // 'public' = anyone can download; 'request' = after an approved request
+  access      String   @default("request")
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+}
+
+model TrustRequest {
+  id          String    @id @default(uuid())
+  name        String
+  email       String
+  company     String
+  reason      String?
+  ndaAccepted Boolean   @default(false)
+  ip          String?
+  // 'pending' | 'approved' | 'denied'
+  status      String    @default("pending")
+  decidedBy   String?
+  decidedAt   DateTime?
+  // Secret for the access link (stored hashed), valid until expiresAt.
+  tokenHash   String?   @unique
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+}

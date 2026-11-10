@@ -9,6 +9,7 @@ import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
 import { settingsView, type SettingsView } from '@/lib/settings';
 import { policiesData, type PoliciesData } from '@/policies/service';
+import { loadTrustConfig, type TrustConfig } from '@/trust/config';
 
 /** Everything the app screens render, already serializable. */
 
@@ -98,6 +99,11 @@ export interface AppData {
   timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
   settings: SettingsView;
   policies: PoliciesData;
+  trust: {
+    config: TrustConfig;
+    documents: { id: string; title: string; description: string | null; access: string; fileName: string; fileSize: number; uploadedBy: string; createdAt: string }[];
+    requests: { id: string; name: string; email: string; company: string; reason: string | null; status: string; createdAt: string; decidedBy: string | null; decidedAt: string | null; expiresAt: string | null; lastUsedAt: string | null }[];
+  };
 }
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -105,6 +111,11 @@ const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 export async function getAppData(user: CurrentUser): Promise<AppData> {
   const settings = await settingsView();
   const policies = await policiesData();
+  const [trustConfig, trustDocs, trustRequests] = await Promise.all([
+    loadTrustConfig(),
+    prisma.trustDocument.findMany({ orderBy: { createdAt: 'asc' }, select: { id: true, title: true, description: true, access: true, fileName: true, fileSize: true, uploadedBy: true, createdAt: true } }),
+    can.admin(user) ? prisma.trustRequest.findMany({ orderBy: { createdAt: 'desc' }, take: 200 }) : Promise.resolve([]),
+  ]);
   const [controls, outcomes, findings, evidence, evidenceTotal, events, runs, users, sampleRuns, anchorCount, latestAnchor] = await Promise.all([
     prisma.control.findMany({
       include: {
@@ -209,5 +220,13 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
     },
     settings,
     policies,
+    trust: {
+      config: trustConfig,
+      documents: trustDocs.map(d => ({ ...d, createdAt: d.createdAt.toISOString() })),
+      requests: trustRequests.map(r => ({
+        id: r.id, name: r.name, email: r.email, company: r.company, reason: r.reason, status: r.status,
+        createdAt: r.createdAt.toISOString(), decidedBy: r.decidedBy, decidedAt: iso(r.decidedAt), expiresAt: iso(r.expiresAt), lastUsedAt: iso(r.lastUsedAt),
+      })),
+    },
   };
 }
