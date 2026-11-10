@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Bot, Cloud, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, LogOut, Settings } from 'lucide-react';
+import { AlertTriangle, Bot, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, LogOut, Settings, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { AppData } from '@/lib/data';
@@ -10,11 +10,13 @@ import ControlsTab from './ControlsTab';
 import DashboardTab from './DashboardTab';
 import EvidenceTab from './EvidenceTab';
 import FindingsTab from './FindingsTab';
+import PeopleTab from './PeopleTab';
+import PoliciesTab from './PoliciesTab';
 import SettingsTab from './SettingsTab';
 import UploadEvidenceModal from './UploadEvidenceModal';
 import { api, Button, cx } from './ui';
 
-export type TabId = 'dashboard' | 'controls' | 'findings' | 'evidence' | 'connectors' | 'assistant' | 'settings';
+export type TabId = 'dashboard' | 'controls' | 'findings' | 'policies' | 'people' | 'evidence' | 'connectors' | 'assistant' | 'settings';
 
 export interface TabProps {
   data: AppData;
@@ -25,7 +27,7 @@ export interface TabProps {
   focusControl?: string;
 }
 
-const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'evidence', 'connectors', 'assistant', 'settings'];
+const TAB_IDS: TabId[] = ['dashboard', 'controls', 'findings', 'policies', 'people', 'evidence', 'connectors', 'assistant', 'settings'];
 
 export default function AppShell({ data, initialTab, initialFramework }: { data: AppData; initialTab?: string; initialFramework?: string }) {
   const router = useRouter();
@@ -54,6 +56,8 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'controls', label: 'Controls', icon: ListChecks },
     { id: 'findings', label: 'Findings', icon: AlertTriangle, badge: data.findings.filter(f => f.status === 'Open').length },
+    { id: 'policies', label: 'Policies', icon: FileText, badge: data.policies.policies.filter(p => p.overdue).length },
+    { id: 'people', label: 'People', icon: Users },
     { id: 'evidence', label: 'Evidence & Audits', icon: FolderArchive },
     { id: 'connectors', label: 'Cloud Accounts', icon: Cloud },
     { id: 'assistant', label: 'Assistant', icon: Bot, hidden: !data.features.assistant },
@@ -131,6 +135,8 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
           {tab === 'dashboard' && <DashboardTab {...props} />}
           {tab === 'controls' && <ControlsTab {...props} />}
           {tab === 'findings' && <FindingsTab {...props} />}
+          {tab === 'policies' && <PoliciesTab {...props} />}
+          {tab === 'people' && <PeopleTab {...props} />}
           {tab === 'evidence' && <EvidenceTab {...props} />}
           {tab === 'connectors' && <ConnectorsTab {...props} />}
           {tab === 'assistant' && data.features.assistant && <AssistantTab />}

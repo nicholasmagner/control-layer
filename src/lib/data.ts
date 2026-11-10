@@ -8,6 +8,7 @@ import { secretsAvailable } from '@/lib/secrets';
 import { prisma } from '@/db/prisma';
 import { DEFAULT_FRESHNESS_DAYS, FRAMEWORKS, type FrameworkId } from '@/frameworks';
 import { settingsView, type SettingsView } from '@/lib/settings';
+import { policiesData, type PoliciesData } from '@/policies/service';
 
 /** Everything the app screens render, already serializable. */
 
@@ -96,12 +97,14 @@ export interface AppData {
   features: { assistant: boolean; remediation: boolean; hasSampleData: boolean; scanIntervalHours: number | null; snapshotIntervalDays: number; localInstall: boolean; canStoreKeys: boolean };
   timestamps: { enabled: boolean; authority: string | null; count: number; latest: { genTime: string; seq: number } | null };
   settings: SettingsView;
+  policies: PoliciesData;
 }
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 export async function getAppData(user: CurrentUser): Promise<AppData> {
   const settings = await settingsView();
+  const policies = await policiesData();
   const [controls, outcomes, findings, evidence, evidenceTotal, events, runs, users, sampleRuns, anchorCount, latestAnchor] = await Promise.all([
     prisma.control.findMany({
       include: {
@@ -205,5 +208,6 @@ export async function getAppData(user: CurrentUser): Promise<AppData> {
       latest: latestAnchor ? { genTime: latestAnchor.genTime.toISOString(), seq: latestAnchor.seq } : null,
     },
     settings,
+    policies,
   };
 }

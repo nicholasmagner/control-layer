@@ -48,6 +48,8 @@ export interface PackageInput {
   events: { timestamp: Date; actor: string; action: string; decision: string; resource: string | null; reason: string | null }[];
   chain: ChainVerification & { anchors?: { count: number; valid: number; latest: { genTime: string; tsaUrl: string } | null } };
   timestamps: { seq: number; chainHash: string; genTime: Date; tsaUrl: string; token: Uint8Array }[];
+  /** Extra tables (e.g. policy acceptance), written as CSV files at these paths. */
+  extras?: { path: string; rows: (string | number | null | undefined)[][] }[];
 }
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
@@ -155,6 +157,7 @@ export async function buildAuditPackage(input: PackageInput): Promise<{ zip: Uin
     ...input.events.map(e => [e.timestamp.toISOString(), e.actor, e.action, e.decision, e.resource, e.reason]),
   ]));
   add('03-evidence-index.csv', csv(evidenceIndex));
+  for (const extra of input.extras ?? []) add(extra.path, csv(extra.rows));
 
   if (input.timestamps.length) {
     const rows: (string | number)[][] = [['Covers records up to #', 'Chain hash (timestamped digest)', 'Timestamp (UTC)', 'Authority', 'Token file']];
@@ -198,6 +201,10 @@ export async function buildAuditPackage(input: PackageInput): Promise<{ zip: Uin
     '  01-findings.csv         Security findings, including resolved ones and accepted risks.',
     '  02-activity-log.csv     Who did what in ControlLayer during the period.',
     '  03-evidence-index.csv   Every evidence record with its fingerprint and the controls it supports.',
+    ...(input.extras?.some(e => e.path.startsWith('04-')) ? [
+      '  04-policy-acceptance.csv  Each person\'s sign-off status for the current version of every policy.',
+      '  05-policy-signatures.csv  Every policy acceptance on record, with the SHA-256 of the exact text accepted.',
+    ] : []),
     '  controls/               One folder per control: _control.txt plus the evidence files.',
     '  manifest.json           SHA-256 of every file in this package.',
     '',

@@ -4,6 +4,7 @@ import { buildAuditPackage } from '@/evidence/package';
 import { verifyEvidenceChain } from '@/evidence/store';
 import { DEFAULT_FRESHNESS_DAYS, getFramework } from '@/frameworks';
 import { logEvent } from '@/lib/events';
+import { acceptanceRows, acceptanceStatusRows } from '@/policies/service';
 import { getSettings } from '@/lib/settings';
 
 export const maxDuration = 120;
@@ -68,7 +69,7 @@ export const GET = handle(async (req: Request) => {
     };
   });
 
-  const [findings, events, chain, anchors] = await Promise.all([
+  const [findings, events, chain, anchors, status, signatures] = await Promise.all([
     prisma.finding.findMany({
       where: { createdAt: { lte: to }, OR: [{ resolvedAt: null }, { resolvedAt: { gte: from } }] },
       orderBy: { createdAt: 'asc' },
@@ -76,7 +77,22 @@ export const GET = handle(async (req: Request) => {
     prisma.eventLog.findMany({ where: { timestamp: { gte: from, lte: to } }, orderBy: { timestamp: 'asc' } }),
     verifyEvidenceChain(),
     prisma.chainAnchor.findMany({ where: { createdAt: { lte: new Date() } }, orderBy: { seq: 'asc' } }),
+    acceptanceStatusRows(),
+    acceptanceRows(),
   ]);
+  const extras = status.length || signatures.length ? [
+    {
+      path: '04-policy-acceptance.csv',
+      rows: [['Person', 'Email', 'Policy', 'Current version', 'Status', 'Accepted at (UTC)'],
+        ...status.map(r => [r.person, r.email, r.policy, r.version, r.status, r.acceptedAt])],
+    },
+    {
+      path: '05-policy-signatures.csv',
+      rows: [['Accepted at (UTC)', 'Person', 'Email', 'Name typed', 'Policy', 'Version', 'SHA-256 of policy text', 'IP address'],
+        ...signatures.filter(r => r.acceptedAt <= to.toISOString())
+          .map(r => [r.acceptedAt, r.name, r.email, r.signedName, r.policy, r.version, r.policySha256, r.ip])],
+    },
+  ] : undefined;
 
   const { zip, fileName } = await buildAuditPackage({
     framework,
@@ -90,6 +106,7 @@ export const GET = handle(async (req: Request) => {
     events,
     chain,
     timestamps: anchors.map(a => ({ seq: a.seq, chainHash: a.chainHash, genTime: a.genTime, tsaUrl: a.tsaUrl, token: new Uint8Array(a.token) })),
+    extras,
   });
 
   await logEvent({

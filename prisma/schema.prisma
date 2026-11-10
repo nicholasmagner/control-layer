@@ -243,3 +243,81 @@ model AppSetting {
   updatedBy String
   updatedAt DateTime @updatedAt
 }
+
+// ---------------------------------------------------------------------------
+// People (employees and contractors) — not the same as app users. Used for
+// policy sign-off and to spot people who left but still have accounts.
+// ---------------------------------------------------------------------------
+
+model Person {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  title          String?
+  githubUsername String?
+  // 'manual' | 'csv' | 'gworkspace' | 'm365'
+  source         String    @default("manual")
+  startDate      DateTime?
+  // Set when the person leaves; they no longer need to sign policies.
+  endDate        DateTime?
+  // Secret for the personal sign-off link (stored hashed).
+  signTokenHash  String?   @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  acknowledgments PolicyAcknowledgment[]
+}
+
+// ---------------------------------------------------------------------------
+// Policies. Drafts are edited freely; publishing creates an immutable version
+// that people sign. Each published version is also stored as evidence.
+// ---------------------------------------------------------------------------
+
+model Policy {
+  id                 String    @id @default(uuid())
+  // Template this policy started from, e.g. 'information-security'.
+  slug               String    @unique
+  title              String
+  summary            String    @default("")
+  draft              String    @db.Text
+  owner              String?
+  reviewIntervalDays Int       @default(365)
+  requiresSignoff    Boolean   @default(true)
+  // Control keys like "SOC2:CC2.2".
+  controls           Json
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  versions PolicyVersion[]
+}
+
+model PolicyVersion {
+  id          String   @id @default(uuid())
+  policyId    String
+  version     Int
+  content     String   @db.Text
+  sha256      String
+  publishedBy String
+  publishedAt DateTime @default(now())
+  evidenceId  String?
+
+  policy          Policy                 @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  acknowledgments PolicyAcknowledgment[]
+
+  @@unique([policyId, version])
+}
+
+model PolicyAcknowledgment {
+  id         String   @id @default(uuid())
+  versionId  String
+  personId   String
+  // Name as typed by the person when accepting.
+  signedName String
+  ip         String?
+  acceptedAt DateTime @default(now())
+
+  version PolicyVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  person  Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, personId])
+}
