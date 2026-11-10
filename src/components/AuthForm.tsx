@@ -1,7 +1,7 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { LogoMark } from './Logo';
 import { api, Button, ErrorText, Field, inputCls } from './ui';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'setup' }) {
@@ -27,7 +27,7 @@ export default function AuthForm({ mode }: { mode: 'login' | 'setup' }) {
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_#0f172a,_#020617_60%)] p-4">
       <form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl">
         <div className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/15 text-sky-400"><ShieldCheck /></div>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-b from-sky-400 to-sky-600 text-slate-950 shadow-lg shadow-sky-500/20"><LogoMark size={34} /></div>
           <h1 className="text-xl font-bold text-slate-50">{setup ? 'Set up ControlLayer' : 'Sign in to ControlLayer'}</h1>
           <p className="text-sm text-slate-400">
             {setup ? 'Create the first administrator account for your workspace.' : 'Continuous compliance and audit evidence.'}

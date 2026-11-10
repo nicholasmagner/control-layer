@@ -2,6 +2,7 @@
 
 import { BadgeCheck, CheckCircle2, Download, FileText, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import { LogoMark } from './Logo';
 import type { trustPageData } from '@/trust/public';
 import { api, Button, ErrorText, Field, formatDate, inputCls, Modal } from './ui';
 
@@ -140,7 +141,7 @@ export default function TrustPublic({ data }: { data: Data }) {
         )}
       </main>
 
-      <footer className="mx-auto max-w-5xl px-6 pb-10 text-xs text-slate-600">Powered by ControlLayer</footer>
+      <footer className="mx-auto flex max-w-5xl items-center gap-1.5 px-6 pb-10 text-xs text-slate-600"><LogoMark size={14} /> Powered by ControlLayer</footer>
 
       {requesting && <RequestForm ndaText={data.ndaText} onClose={() => setRequesting(false)} onSent={() => { setRequesting(false); setSent(true); }} />}
     </div>

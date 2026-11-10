@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Bot, Building, ShieldAlert, UserCheck, Cloud, FileText, FlaskConical, FolderArchive, LayoutDashboard, ListChecks, ClipboardList, LogOut, MonitorSmartphone, Settings, ShieldCheck, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { LogoMark, Wordmark } from './Logo';
 import { useCallback, useEffect, useState } from 'react';
 import type { AppData } from '@/lib/data';
 import AccessReviewsTab from './AccessReviewsTab';
@@ -88,8 +89,8 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
     <div className="flex min-h-screen w-full">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-800 bg-slate-900 md:flex">
         <button className="px-6 pb-4 pt-6 text-left" onClick={() => navigate('dashboard')}>
-          <h1 className="bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-2xl font-bold tracking-tight text-transparent">ControlLayer</h1>
-          <p className="mt-1 truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{data.organization}</p>
+          <h1><Wordmark /></h1>
+          <p className="mt-1 truncate pl-[38px] text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{data.organization}</p>
         </button>
 
         <div className="px-4">
@@ -132,6 +133,7 @@ export default function AppShell({ data, initialTab, initialFramework }: { data:
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile navigation */}
         <div className="flex gap-1 overflow-x-auto border-b border-slate-800 bg-slate-900 p-2 md:hidden">
+          <button onClick={() => navigate('dashboard')} aria-label="ControlLayer" className="flex shrink-0 items-center px-2 text-sky-400"><LogoMark size={22} /></button>
           {nav.filter(n => !n.hidden).map(n => (
             <button key={n.id} onClick={() => navigate(n.id)}
               className={cx('flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-xs', tab === n.id ? 'bg-sky-500/10 text-sky-400' : 'text-slate-400')}>

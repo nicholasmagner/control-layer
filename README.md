@@ -1,3 +1,5 @@
+<img src="desktop/build/icon.svg" alt="" width="72" height="72">
+
 # ControlLayer
 
 **Open-source continuous compliance and audit evidence for small teams.**
